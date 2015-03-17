@@ -1,0 +1,10 @@
+import psycopg2
+conn = psycopg2.connect("dbname='oeffegris' user='***REMOVED***' host='localhost' password='***REMOVED***'")
+cur = conn.cursor()
+dbkald = "SELECT st_astext(geom) FROM tiletest_kontrol WHERE id_0 = 1"
+cur.execute(dbkald)
+geometri = str(cur.fetchone()[0])
+gem = QgsGeometry.fromWkt(geometri)
+box = gem.boundingBox()
+iface.mapCanvas().setExtent(box)
+iface.mapCanvas().refresh()
