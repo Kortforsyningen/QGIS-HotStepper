@@ -6,6 +6,7 @@
         <file>ok.png</file>
         <file>reload.png</file>
         <file>reset.png</file>
+        <file>multiok.png</file>
         <file>lock.png</file>
         <file>target.png</file>
     </qresource>

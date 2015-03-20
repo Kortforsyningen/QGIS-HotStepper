@@ -242,6 +242,13 @@ class HotStepper(QDialog):
             callback=self.qc_reset,
             parent=self.iface.mainWindow())
 
+        icon_path = ':/plugins/HotStepper/multiok.png'
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Set OK for selected'),
+            callback=self.qc_multiok,
+            parent=self.iface.mainWindow())
+
         icon_path = ':/plugins/HotStepper/lock.png'
         self.add_action(
             icon_path,
@@ -259,8 +266,12 @@ class HotStepper(QDialog):
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
-            self.iface.removePluginMenu(self.tr(u'&HotStepper'),action)
+            self.iface.removePluginMenu(
+                self.tr(u'&HotStepper'),
+                action)
             self.iface.removeToolBarIcon(action)
+        # remove the toolbar
+        del self.toolbar
 
     def qc_setup(self):
         global DB_name
@@ -560,6 +571,28 @@ class HotStepper(QDialog):
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'pending\' WHERE id_0 = "+str(fID)
             cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = null WHERE id_0 = "+str(fID)
+            cur.execute(dbkald)            
+            conn.commit()
+        conn.commit()
+
+        self.iface.mapCanvas().refresh()
+            
+        pass
+
+    def qc_multiok(self):
+        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        cur = conn.cursor()
+
+        cLayer = self.iface.activeLayer()
+        selection = cLayer.selectedFeatures()
+
+        for feat in selection:
+            fID = feat["Id_0"]
+            dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'OK\' WHERE id_0 = "+str(fID)
+            cur.execute(dbkald)
+            dbkald = "update "+DB_schema+"."+DB_table+" set \"check_user\" = \'"+CHKuser+"\' WHERE id_0 = "+str(fID)
+            cur.execute(dbkald)            
+            dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = \'"+str(datetime.now())+"\' WHERE id_0 = "+str(fID)
             cur.execute(dbkald)            
             conn.commit()
         conn.commit()
