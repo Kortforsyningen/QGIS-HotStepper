@@ -405,15 +405,15 @@ class HotStepper(QDialog):
                                geom = feat.geometry()
                                JoinID = feat[inputField]
                                if self.qcs.checkBoxGCP.isChecked():
-                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+JoinID+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,0.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
+                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,0.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                else:
-                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+JoinID+"','pending',null,null,null,null,ST_GeomFromText('"+geom.exportToWkt()+"'));")
+                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                tableID = tableID+1
                     
                     conn.commit()
 
                     #QMessageBox.information(None, "test input", "her2")
-                    time.sleep(2)
+                    time.sleep(4)
 
                     uri = QgsDataSourceURI()
                     uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)

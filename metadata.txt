@@ -10,7 +10,7 @@
 name=HotStepper
 qgisMinimumVersion=2.0
 description=stepping like a pro
-version=0.1.6
+version=0.1.7
 author=GST
 email=anfla@gst.dk
 
