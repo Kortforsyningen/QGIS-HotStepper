@@ -303,14 +303,18 @@ class HotStepper(QDialog):
         self.qcs.textEdit.insertPlainText(''.join(FailCodes))
 
         #list available PostgreSQL tables
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
-        cur = conn.cursor()
-        cur.execute("""SELECT table_name FROM information_schema.tables WHERE table_schema = '"""+DB_schema+"""'""")    
-        rows = cur.fetchall()
+        try:
+            conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+            cur = conn.cursor()
+            cur.execute("""SELECT table_name FROM information_schema.tables WHERE table_schema = '"""+DB_schema+"""'""")    
+            rows = cur.fetchall()
+        except(psycopg2.OperationalError):
+            QMessageBox.information(None, "DB connection", "Cannot connect to database")
+            pass
 
         tableList = []
         for e in rows:
-            if "chk_" in e[0]: 
+            if ("chk_" in e[0])or("gcp_" in e[0]): 
                 tableList.append(e[0])
         
         self.qcs.inTableA.clear()
@@ -344,13 +348,18 @@ class HotStepper(QDialog):
                 #elif geom.type() == QGis.Line:
                 #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
                 #elif geom.type() == QGis.Polygon:
-                #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
+                #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")(
 
-                DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
+                #QMessageBox.information(None, "type", DB_table)
+                
+                if "gcp" in DB_table:
+                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")               
+                else:
+                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
 
                 ccdb_svar = 1  
 
-                dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_")+" WHERE id_0 = 1"
+                dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+" WHERE id_0 = 1"
                 cur.execute(dbkald)
                 FailCodes = str(cur.fetchone()[0]).split("\n")
                 
@@ -365,7 +374,11 @@ class HotStepper(QDialog):
                     conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
                     cur = conn.cursor()
                     
-                    DB_table ="chk_"+self.qcs.inTableName.text()
+                    if self.qcs.checkBoxGCP.isChecked():
+                        DB_table ="gcp_"+self.qcs.inTableName.text().lower()
+                    else:
+                        DB_table ="chk_"+self.qcs.inTableName.text().lower()
+                    
                     ligenu = str(datetime.now()) 
                     
                     #her arbejdes
@@ -374,9 +387,9 @@ class HotStepper(QDialog):
                         DB_table = DB_table+str(1)
                     
                     #Create failcodes DB
-                    cur.execute("CREATE TABLE "+DB_schema+"."+DB_table.replace("chk_", "err_")+"(Id_0 INTEGER PRIMARY KEY,failcodes text)")
+                    cur.execute("CREATE TABLE "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+"(Id_0 INTEGER PRIMARY KEY,failcodes text)")
                     conn.commit()
-                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table.replace("chk_", "err_")+" VALUES( 1 , \'"+FailCodes+"\' );")
+                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+" VALUES( 1 , \'"+FailCodes+"\' );")
                     conn.commit()
 
 
@@ -403,6 +416,16 @@ class HotStepper(QDialog):
                             tableID = 1
                             for feat in selection:
                                geom = feat.geometry()
+                               
+                               #QMessageBox.information(None, "type", str(layer.geometryType()))
+                               
+                               if (layer.geometryType() == 2):
+                                   typen = "polygon"
+                               elif (layer.geometryType() == 0):
+                                   typen = "punkt"
+                               elif (layer.geometryType() == 1):
+                                   typen = "linie"
+                               
                                JoinID = feat[inputField]
                                if self.qcs.checkBoxGCP.isChecked():
                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,0.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
@@ -424,9 +447,16 @@ class HotStepper(QDialog):
 
                     #set styling
                     DBlaget = self.iface.activeLayer()
-                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
-
-                    dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_")+" WHERE id_0 = 1"
+                    if self.qcs.checkBoxGCP.isChecked():
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")
+                    elif typen == "polygon": 
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
+                    elif typen == "punkt":
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Points.qml")
+                    elif typen == "linie":
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
+                        
+                    dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+" WHERE id_0 = 1"
                     cur.execute(dbkald)
                     FailCodes = str(cur.fetchone()[0]).split("\n")
                
@@ -614,6 +644,7 @@ class HotStepper(QDialog):
         cur = conn.cursor()
         global ccdb_svar
 
+        QMessageBox.information(None, "type", DB_table)
         dbkald = "SELECT ST_AsText(ST_Centroid(geom)) FROM "+ DB_schema+"."+DB_table +" where id_0 = " +ccdb_svar
         cur.execute(dbkald)
         
@@ -646,7 +677,7 @@ class HotStepper(QDialog):
         cur.execute(dbkald)            
         conn.commit()
         
-        dbkald = "update "+DB_schema+"."+DB_table+" set \"diff\" = \'"+str(point.y()-g_y)+"\' WHERE id_0 = "+ccdb_svar
+        dbkald = "update "+DB_schema+"."+DB_table+" set \"diff\" = \'"+str(diff)+"\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)            
         conn.commit()
 
