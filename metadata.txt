@@ -10,7 +10,7 @@
 name=HotStepper
 qgisMinimumVersion=2.0
 description=stepping like a pro
-version=0.1.8
+version=0.1.9
 author=GST
 email=anfla@gst.dk
 
@@ -19,7 +19,8 @@ email=anfla@gst.dk
 # Optional items:
 
 # Uncomment the following line and add your changelog:
-# changelog=
+changelog=
+    2016-05-30 0.1.9 minor fixes to GCP module
 
 # Tags are comma separated with spaces allowed
 tags=

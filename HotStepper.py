@@ -97,6 +97,10 @@ class HotStepper(QDialog):
         # TODO: We are going to let the user set this up in a future iteration
         self.toolbar = self.iface.addToolBar(u'HotStepper')
         self.toolbar.setObjectName(u'HotStepper')
+
+        self.qcs.textEdit.clear()
+        FailCodes = ['Clouds\nBridge\nBuilding']
+        self.qcs.textEdit.insertPlainText(''.join(FailCodes))
         
 	#set user
 	CHKuser = getpass.getuser()
@@ -275,16 +279,16 @@ class HotStepper(QDialog):
 
     def qc_setup(self):
         global DB_name
-	global DB_host
-	global DB_port
-	global DB_user
-	global DB_pass
+        global DB_host
+        global DB_port
+        global DB_user
+        global DB_pass
 	
-	global DB_schema
-	global DB_table
-	global DB_geom
-	global ccdb_svar
-	global FailCodes
+        global DB_schema
+        global DB_table
+        global DB_geom
+        global ccdb_svar
+        global FailCodes
 	    
         """Run method that performs all the real work"""
         # show the dialog
@@ -292,15 +296,16 @@ class HotStepper(QDialog):
         #self.qcs.inShapeA.clear()
         QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.update1 )
         QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.checkA )
+        QObject.connect(self.qcs.checkBoxGCP, SIGNAL("clicked()" ), self.fillFailCodes )
 
         self.qcs.radioButton.toggle()
         layers = ftools_utils.getLayerNames([QGis.Point, QGis.Line, QGis.Polygon])
         self.qcs.inShapeA.addItems(layers)
         #self.update1
 
-        self.qcs.textEdit.clear()
-        FailCodes = ['Clouds\nBridge\nBuilding'] 
-        self.qcs.textEdit.insertPlainText(''.join(FailCodes))
+        # self.qcs.textEdit.clear()
+        # FailCodes = ['Clouds\nBridge\nBuilding']
+        # self.qcs.textEdit.insertPlainText(''.join(FailCodes))
 
         #list available PostgreSQL tables
         try:
@@ -644,7 +649,7 @@ class HotStepper(QDialog):
         cur = conn.cursor()
         global ccdb_svar
 
-        QMessageBox.information(None, "type", DB_table)
+        # QMessageBox.information(None, "type", DB_table)
         dbkald = "SELECT ST_AsText(ST_Centroid(geom)) FROM "+ DB_schema+"."+DB_table +" where id_0 = " +ccdb_svar
         cur.execute(dbkald)
         
@@ -707,3 +712,8 @@ class HotStepper(QDialog):
         else:
             self.qcs.useSelectedA.setCheckState( Qt.Unchecked )
         pass
+
+    def fillFailCodes(self):
+        self.qcs.textEdit.clear()
+        FailCodes = ['Ikke synlig\nTaghjoerne']
+        self.qcs.textEdit.insertPlainText(''.join(FailCodes))
