@@ -34,6 +34,8 @@ import resources_rc
 # Import the code for the dialog
 from HotStepper_dialog import HotStepperDialog
 from HotStepper_settings_dialog import HotStepper_settings
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 import os.path
 import ftools_utils
 import psycopg2
@@ -61,7 +63,7 @@ class HotStepper(QDialog):
 
     def __init__(self, iface):
         global CHKuser
-	QDialog.__init__(self, iface.mainWindow())
+        QDialog.__init__(self, iface.mainWindow())
         """Constructor.
 
         :param iface: An interface instance that will be passed to this class
@@ -102,17 +104,29 @@ class HotStepper(QDialog):
         FailCodes = ['Clouds\nBridge\nBuilding']
         self.qcs.textEdit.insertPlainText(''.join(FailCodes))
         
-	#set user
-	CHKuser = getpass.getuser()
+        #set user
+        CHKuser = getpass.getuser()
 	
         # Setup keyboard shortcuts
-        def short_ok():
-            self.qc_ok()
+        # def short_ok():
+        #     QMessageBox.information(None, "HotButton", "Enter pressed")
+        #     self.qc_ok()
+        # def short_gcp():
+        #     QMessageBox.information(None, "HotButton", "Key_0 pressed")
+        #     self.gcp_mapclick()
             
-        short = QShortcut(QKeySequence(Qt.ALT + Qt.Key_1), iface.mainWindow())
-        short.setContext(Qt.ApplicationShortcut)
-        short.activated.connect(short_ok)
-        
+        short1 = QShortcut(QKeySequence(Qt.Key_V), iface.mainWindow())
+        short1.setContext(Qt.ApplicationShortcut)
+        short1.activated.connect(self.qc_ok)
+
+        short2 = QShortcut(QKeySequence(Qt.Key_G), iface.mainWindow())
+        short2.setContext(Qt.ApplicationShortcut)
+        short2.activated.connect(self.gcp_measure)
+
+        short3 = QShortcut(QKeySequence(Qt.Key_X), iface.mainWindow())
+        short3.setContext(Qt.ApplicationShortcut)
+        short3.activated.connect(self.qc_fejl)
+
         #set mapclicktool
         self.canvas = self.iface.mapCanvas()
         self.clickTool = QgsMapToolEmitPoint(self.canvas)
@@ -228,14 +242,14 @@ class HotStepper(QDialog):
         icon_path = ':/plugins/HotStepper/ok.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Mark OK and go to next'),
+            text=self.tr(u'Mark OK and go to next (v)'),
             callback=self.qc_ok,
             parent=self.iface.mainWindow())
 
         icon_path = ':/plugins/HotStepper/fail.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Mark fail and go to next'),
+            text=self.tr(u'Mark fail and go to next (x)'),
             callback=self.qc_fejl,
             parent=self.iface.mainWindow())
 
@@ -263,7 +277,7 @@ class HotStepper(QDialog):
         icon_path = ':/plugins/HotStepper/target.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Measure GCP'),
+            text=self.tr(u'Measure GCP (g)'),
             callback=self.gcp_measure,
             parent=self.iface.mainWindow())
             
@@ -299,8 +313,18 @@ class HotStepper(QDialog):
         QObject.connect(self.qcs.checkBoxGCP, SIGNAL("clicked()" ), self.fillFailCodes )
 
         self.qcs.radioButton.toggle()
-        layers = ftools_utils.getLayerNames([QGis.Point, QGis.Line, QGis.Polygon])
-        self.qcs.inShapeA.addItems(layers)
+        # layers = ftools_utils.getLayerNames([QGis.Point, QGis.Line, QGis.Polygon])
+        # self.qcs.inShapeA.addItems(layers)
+
+        lyrs = self.iface.legendInterface().layers()
+        lyr_list = []
+        for layer in lyrs:
+            lyr_list.append(layer.name())
+        self.qcs.inShapeA.clear()
+        self.qcs.inShapeA.addItems(lyr_list)
+
+
+
         #self.update1
 
         # self.qcs.textEdit.clear()
@@ -433,7 +457,7 @@ class HotStepper(QDialog):
                                
                                JoinID = feat[inputField]
                                if self.qcs.checkBoxGCP.isChecked():
-                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,0.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
+                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,-99.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                else:
                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                tableID = tableID+1
@@ -540,7 +564,7 @@ class HotStepper(QDialog):
 
         result = self.dlg.exec_()
 
-	if result:
+        if result:
 
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'Fail\' WHERE id_0 = "+ccdb_svar
             cur.execute(dbkald)
@@ -715,5 +739,5 @@ class HotStepper(QDialog):
 
     def fillFailCodes(self):
         self.qcs.textEdit.clear()
-        FailCodes = ['Ikke synlig\nTaghjoerne']
+        FailCodes = ['Ikke synlig\nIkke egnet\nTabtgaaet\nZ punkt']
         self.qcs.textEdit.insertPlainText(''.join(FailCodes))
