@@ -127,6 +127,10 @@ class HotStepper(QDialog):
         short3.setContext(Qt.ApplicationShortcut)
         short3.activated.connect(self.qc_fejl)
 
+        short4 = QShortcut(QKeySequence(Qt.Key_R), iface.mainWindow())
+        short4.setContext(Qt.ApplicationShortcut)
+        short4.activated.connect(self.qc_nextstep)
+
         #set mapclicktool
         self.canvas = self.iface.mapCanvas()
         self.clickTool = QgsMapToolEmitPoint(self.canvas)
@@ -235,7 +239,7 @@ class HotStepper(QDialog):
         icon_path = ':/plugins/HotStepper/reload.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Go to next'),
+            text=self.tr(u'Go to next (r)'),
             callback=self.qc_nextstep,
             parent=self.iface.mainWindow())
 
