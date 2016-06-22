@@ -313,7 +313,7 @@ class HotStepper(QDialog):
         self.qcs.show()
         #self.qcs.inShapeA.clear()
         QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.update1 )
-        QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.checkA )
+        # QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.checkA )
         QObject.connect(self.qcs.checkBoxGCP, SIGNAL("clicked()" ), self.fillFailCodes )
 
         self.qcs.radioButton.toggle()
@@ -729,6 +729,7 @@ class HotStepper(QDialog):
         for f in changedField:
             if f.type() == QVariant.Int or f.type() == QVariant.String:
                 self.qcs.inField1.addItem(unicode(f.name()))
+        self.checkA()
         pass
 
     def checkA(self):
