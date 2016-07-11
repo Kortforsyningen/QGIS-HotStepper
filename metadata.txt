@@ -20,7 +20,8 @@ email=anfla@gst.dk
 
 # Uncomment the following line and add your changelog:
 changelog=
-    2016-06-01 0.2.1
+    2016-07-11 0.2.2 Id from float
+    2016-06-01 0.2.1 Bugfix
     2016-06-01 0.2.0 Keyboard shortcuts added to OK, Fail and GCP measure
     2016-05-30 0.1.9 minor fixes to GCP module
 

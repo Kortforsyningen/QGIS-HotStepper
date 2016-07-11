@@ -727,8 +727,8 @@ class HotStepper(QDialog):
         changedField = ftools_utils.getFieldList(changedLayer)
         self.qcs.inField1.clear()
         for f in changedField:
-            if f.type() == QVariant.Int or f.type() == QVariant.String:
-                self.qcs.inField1.addItem(unicode(f.name()))
+            #if f.type() == QVariant.Int or f.type() == QVariant.String:
+            self.qcs.inField1.addItem(unicode(f.name()))
         self.checkA()
         pass
 
