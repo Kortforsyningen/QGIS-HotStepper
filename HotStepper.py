@@ -388,7 +388,16 @@ class HotStepper(QDialog):
                 if "gcp" in DB_table:
                     DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")               
                 else:
-                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
+                    dbkald = "SELECT ST_GeometryType(st_astext(geom)) FROM "+DB_schema+"."+DB_table+" WHERE id_0 = 1"
+                    cur.execute(dbkald)
+                    typen = str(cur.fetchone()[0])
+                    #QMessageBox.information(None, "geometritype", typen)
+                    if typen == "ST_Polygon" or typen == "ST_MultiPolygon":
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
+                    elif typen == "ST_Point":
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Points.qml")
+                    elif typen == "ST_LineString":
+                        DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
 
                 ccdb_svar = 1  
 

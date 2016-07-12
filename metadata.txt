@@ -10,7 +10,7 @@
 name=HotStepper
 qgisMinimumVersion=2.0
 description=stepping like a pro
-version=0.2.1
+version=0.2.3
 author=GST
 email=anfla@gst.dk
 
@@ -20,6 +20,7 @@ email=anfla@gst.dk
 
 # Uncomment the following line and add your changelog:
 changelog=
+    2016-07-12 0.2.3 Bugfix (wrong styling loading)
     2016-07-11 0.2.2 Id from float
     2016-06-01 0.2.1 Bugfix
     2016-06-01 0.2.0 Keyboard shortcuts added to OK, Fail and GCP measure
