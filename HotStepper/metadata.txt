@@ -31,9 +31,9 @@ changelog=
 # Tags are comma separated with spaces allowed
 tags=
 
-homepage=
-tracker=
-repository=
+homepage=https://github.com/Kortforsyningen/QGIS-HotStepper
+tracker=https://github.com/Kortforsyningen/QGIS-HotStepper/issues
+repository=https://github.com/Kortforsyningen/QGIS-HotStepper
 icon=icon.png
 # experimental flag
 experimental=True
