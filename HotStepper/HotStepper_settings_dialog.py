@@ -24,6 +24,9 @@
 import os
 
 from PyQt4 import QtGui, uic
+from qgissettingmanager import SettingManager
+from qgissettingmanager.types import String
+from qgissettingmanager.setting import Scope
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'ui_HotStepper_settings.ui'))
@@ -39,3 +42,18 @@ class HotStepper_settings(QtGui.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+
+
+class HotStepperDBSettings(SettingManager):
+    '''
+    Use QGIS internals to keep track of user supplied database credentials.
+    '''
+
+    def __init__(self):
+        SettingManager.__init__(self, 'HotStepper')
+        self.add_setting(String('db_name', Scope.Global, ''))
+        self.add_setting(String('db_host', Scope.Global, ''))
+        self.add_setting(String('db_user', Scope.Global, ''))
+        self.add_setting(String('db_password', Scope.Global, ''))
+        self.add_setting(String('db_port', Scope.Global, '5432'))
+

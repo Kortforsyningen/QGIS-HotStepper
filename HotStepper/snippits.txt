@@ -1,5 +1,5 @@
 import psycopg2
-conn = psycopg2.connect("dbname='oeffegris' user='***REMOVED***' host='localhost' password='***REMOVED***'")
+conn = psycopg2.connect("dbname='oeffegris' user='postgres' host='localhost' password='postgres'")
 cur = conn.cursor()
 dbkald = "SELECT st_astext(geom) FROM tiletest_kontrol WHERE id_0 = 1"
 cur.execute(dbkald)

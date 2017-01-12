@@ -46,8 +46,8 @@ ccdb_svar = '1'
 DB_name = "oeffegris"
 DB_host = "localhost"
 DB_port = "5432"
-DB_user = "***REMOVED***"
-DB_pass = "***REMOVED***"
+DB_user = "postgres"
+DB_pass = "postgres"
 
 DB_schema = "public"
 DB_table = "tiletest_kontrol"
@@ -103,9 +103,9 @@ class HotStepper(QDialog):
         
         #setup DB connection
 	dbname = 'oeffegris'
-	user = '***REMOVED***'
+	user = 'postgres'
 	host = 'localhost'
-	password = '***REMOVED***'
+	password = 'postgres'
 	
 	#conn = psycopg2.connect("dbname="+dbname+" user="+user+" host="+host+" password="+password)
 	#cur = conn.cursor()
@@ -312,7 +312,7 @@ class HotStepper(QDialog):
                 uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
                 uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                 uri.uri()
-                iface.addVectorLayer(uri.uri(), DB_table, "***REMOVED***")
+                iface.addVectorLayer(uri.uri(), DB_table, "postgres")
 
                 #set styling
                 DBlaget = self.iface.activeLayer()
@@ -383,7 +383,7 @@ class HotStepper(QDialog):
                     uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
                     uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                     uri.uri()
-                    iface.addVectorLayer(uri.uri(), DB_table, "***REMOVED***")
+                    iface.addVectorLayer(uri.uri(), DB_table, "postgres")
                     ccdb_svar = 1
                
                 except psycopg2.DatabaseError, e:

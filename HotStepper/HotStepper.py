@@ -33,7 +33,7 @@ import resources_rc
 
 # Import the code for the dialog
 from HotStepper_dialog import HotStepperDialog
-from HotStepper_settings_dialog import HotStepper_settings
+from HotStepper_settings_dialog import HotStepper_settings, HotStepperDBSettings
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import os.path
@@ -44,13 +44,6 @@ import math
 
 #set global attributes
 ccdb_svar = '1'
-DB_name = "***REMOVED***"
-DB_host = "***REMOVED***"
-#DB_name = "oeffegris"
-#DB_host = "localhost"
-DB_port = "5432"
-DB_user = "***REMOVED***"
-DB_pass = "***REMOVED***"
 
 DB_schema = "check_tables"
 DB_table = "tiletest_kontrol"
@@ -73,6 +66,8 @@ class HotStepper(QDialog):
         """
         # Save reference to the QGIS interface
         self.iface = iface
+        self.settings = HotStepperDBSettings()
+
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
         # initialize locale
@@ -93,6 +88,13 @@ class HotStepper(QDialog):
         self.dlg = HotStepperDialog()
         self.qcs = HotStepper_settings()
 
+        # populate line edits in HotStepper_settings dialog
+        self.qcs.db_name.insert(self.settings.value('db_name'))
+        self.qcs.db_host.insert(self.settings.value('db_host'))
+        self.qcs.db_user.insert(self.settings.value('db_user'))
+        self.qcs.db_password.insert(self.settings.value('db_password'))
+        self.qcs.db_port.insert(self.settings.value('db_port'))
+
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&HotStepper')
@@ -103,10 +105,10 @@ class HotStepper(QDialog):
         self.qcs.textEdit.clear()
         FailCodes = ['Clouds\nBridge\nBuilding']
         self.qcs.textEdit.insertPlainText(''.join(FailCodes))
-        
+
         #set user
         CHKuser = getpass.getuser()
-	
+
         # Setup keyboard shortcuts
         # def short_ok():
         #     QMessageBox.information(None, "HotButton", "Enter pressed")
@@ -114,7 +116,7 @@ class HotStepper(QDialog):
         # def short_gcp():
         #     QMessageBox.information(None, "HotButton", "Key_0 pressed")
         #     self.gcp_mapclick()
-            
+
         short1 = QShortcut(QKeySequence(Qt.Key_V), iface.mainWindow())
         short1.setContext(Qt.ApplicationShortcut)
         short1.activated.connect(self.qc_ok)
@@ -235,7 +237,7 @@ class HotStepper(QDialog):
             text=self.tr(u'Setup'),
             callback=self.qc_setup,
             parent=self.iface.mainWindow())
-            
+
         icon_path = ':/plugins/HotStepper/reload.png'
         self.add_action(
             icon_path,
@@ -284,7 +286,7 @@ class HotStepper(QDialog):
             text=self.tr(u'Measure GCP (g)'),
             callback=self.gcp_measure,
             parent=self.iface.mainWindow())
-            
+
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -296,29 +298,19 @@ class HotStepper(QDialog):
         del self.toolbar
 
     def qc_setup(self):
-        global DB_name
-        global DB_host
-        global DB_port
-        global DB_user
-        global DB_pass
-	
         global DB_schema
         global DB_table
         global DB_geom
         global ccdb_svar
         global FailCodes
-	    
+
         """Run method that performs all the real work"""
         # show the dialog
         self.qcs.show()
-        #self.qcs.inShapeA.clear()
         QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.update1 )
-        # QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.checkA )
         QObject.connect(self.qcs.checkBoxGCP, SIGNAL("clicked()" ), self.fillFailCodes )
 
         self.qcs.radioButton.toggle()
-        # layers = ftools_utils.getLayerNames([QGis.Point, QGis.Line, QGis.Polygon])
-        # self.qcs.inShapeA.addItems(layers)
 
         lyrs = self.iface.legendInterface().layers()
         lyr_list = []
@@ -327,19 +319,24 @@ class HotStepper(QDialog):
         self.qcs.inShapeA.clear()
         self.qcs.inShapeA.addItems(lyr_list)
 
-
-
-        #self.update1
-
-        # self.qcs.textEdit.clear()
-        # FailCodes = ['Clouds\nBridge\nBuilding']
-        # self.qcs.textEdit.insertPlainText(''.join(FailCodes))
+        self.settings.set_value('db_name', self.qcs.db_name.text())
+        self.settings.set_value('db_host', self.qcs.db_host.text())
+        self.settings.set_value('db_user', self.qcs.db_user.text())
+        self.settings.set_value('db_password', self.qcs.db_password.text())
+        self.settings.set_value('db_port', self.qcs.db_port.text())
 
         #list available PostgreSQL tables
         try:
-            conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+            conn = psycopg2.connect(
+                "dbname={name} user={user} host={host} password={pswd}".format(
+                    name=self.settings.value('db_name'),
+                    user=self.settings.value('db_user'),
+                    host=self.settings.value('db_host'),
+                    pswd=self.settings.value('db_password'),
+                )
+            )
             cur = conn.cursor()
-            cur.execute("""SELECT table_name FROM information_schema.tables WHERE table_schema = '"""+DB_schema+"""'""")    
+            cur.execute("""SELECT table_name FROM information_schema.tables WHERE table_schema = '"""+DB_schema+"""'""")
             rows = cur.fetchall()
         except(psycopg2.OperationalError):
             QMessageBox.information(None, "DB connection", "Cannot connect to database")
@@ -347,46 +344,39 @@ class HotStepper(QDialog):
 
         tableList = []
         for e in rows:
-            if ("chk_" in e[0])or("gcp_" in e[0]): 
+            if ("chk_" in e[0])or("gcp_" in e[0]):
                 tableList.append(e[0])
-        
+
         self.qcs.inTableA.clear()
         self.qcs.inTableA.addItems(tableList)
-        
+
         # Run the dialog event loop
         result = self.qcs.exec_()
         # See if OK was pressed
 
-	if result:
+        if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             if self.qcs.radioButton.isChecked():
                 DB_table = self.qcs.inTableA.currentText()
 
                 uri = QgsDataSourceURI()
-                uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
+                uri.setConnection(
+                    self.settings.value('db_host'),
+                    self.settings.value('db_port'),
+                    self.settings.value('db_name'),
+                    self.settings.value('db_user'),
+                    self.settings.value('db_password')
+                )
                 uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                 uri.uri()
-                iface.addVectorLayer(uri.uri(), DB_table, "***REMOVED***")
+                iface.addVectorLayer(uri.uri(), DB_table, "postgres")
 
                 #set styling
                 DBlaget = self.iface.activeLayer()
-                #provider = DBlaget.dataProvider()
-                #feat = QgsFeature()
-                #provider.nextFeature(feat)
-                #geom = feat.geometry()
 
-                #if geom.type() == QGis.Point:
-                #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Points.qml")
-                #elif geom.type() == QGis.Line:
-                #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
-                #elif geom.type() == QGis.Polygon:
-                #    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")(
-
-                #QMessageBox.information(None, "type", DB_table)
-                
                 if "gcp" in DB_table:
-                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")               
+                    DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")
                 else:
                     dbkald = "SELECT ST_GeometryType(st_astext(geom)) FROM "+DB_schema+"."+DB_table+" WHERE id_0 = 1"
                     cur.execute(dbkald)
@@ -399,35 +389,41 @@ class HotStepper(QDialog):
                     elif typen == "ST_LineString":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
 
-                ccdb_svar = 1  
+                ccdb_svar = 1
 
                 dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+" WHERE id_0 = 1"
                 cur.execute(dbkald)
                 FailCodes = str(cur.fetchone()[0]).split("\n")
-                
-                        
+
+
             if self.qcs.radioButton_2.isChecked():
                 inputFilNavn = self.qcs.inShapeA.currentText()
                 inputField = self.qcs.inField1.currentText()
-                FailCodes = self.qcs.textEdit.toPlainText() 
-                #QMessageBox.information(None, "test input", FailCodes)
+                FailCodes = self.qcs.textEdit.toPlainText()
 
                 try:
-                    conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+                    conn = psycopg2.connect(
+                        "dbname={name} user={user} host={host} password={pswd}".format(
+                            name=self.settings.value('db_name'),
+                            user=self.settings.value('db_user'),
+                            host=self.settings.value('db_host'),
+                            pswd=self.settings.value('db_password'),
+                        )
+                    )
                     cur = conn.cursor()
-                    
+
                     if self.qcs.checkBoxGCP.isChecked():
                         DB_table ="gcp_"+self.qcs.inTableName.text().lower()
                     else:
                         DB_table ="chk_"+self.qcs.inTableName.text().lower()
-                    
-                    ligenu = str(datetime.now()) 
-                    
+
+                    ligenu = str(datetime.now())
+
                     #her arbejdes
                     cur.execute("select exists(select * from information_schema.tables where table_name=%s)", (DB_table,))
                     if cur.fetchone()[0]:
                         DB_table = DB_table+str(1)
-                    
+
                     #Create failcodes DB
                     cur.execute("CREATE TABLE "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+"(Id_0 INTEGER PRIMARY KEY,failcodes text)")
                     conn.commit()
@@ -445,7 +441,7 @@ class HotStepper(QDialog):
                     allLayers = canvas.layers()
 
                     for i in allLayers:
-                    
+
                         if(i.name() == inputFilNavn):
                             layer=i
                             if self.qcs.useSelectedA.isChecked():
@@ -458,67 +454,72 @@ class HotStepper(QDialog):
                             tableID = 1
                             for feat in selection:
                                geom = feat.geometry()
-                               
-                               #QMessageBox.information(None, "type", str(layer.geometryType()))
-                               
+
                                if (layer.geometryType() == 2):
                                    typen = "polygon"
                                elif (layer.geometryType() == 0):
                                    typen = "punkt"
                                elif (layer.geometryType() == 1):
                                    typen = "linie"
-                               
+
                                JoinID = feat[inputField]
                                if self.qcs.checkBoxGCP.isChecked():
                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,-99.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                else:
                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,ST_GeomFromText('"+geom.exportToWkt()+"'));")
                                tableID = tableID+1
-                    
+
                     conn.commit()
 
                     #QMessageBox.information(None, "test input", "her2")
                     time.sleep(4)
 
                     uri = QgsDataSourceURI()
-                    uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
+                    uri.setConnection(self.settings.value('db_host'), self.settings.value('db_port'), self.settings.value('db_name'), self.settings.value('db_user'), self.settings.value('db_password'))
                     uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                     uri.uri()
-                    iface.addVectorLayer(uri.uri(), DB_table, "***REMOVED***")
+                    iface.addVectorLayer(uri.uri(), DB_table, "postgres")
                     ccdb_svar = 1
 
                     #set styling
                     DBlaget = self.iface.activeLayer()
                     if self.qcs.checkBoxGCP.isChecked():
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")
-                    elif typen == "polygon": 
+                    elif typen == "polygon":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
                     elif typen == "punkt":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Points.qml")
                     elif typen == "linie":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
-                        
+
                     dbkald = "SELECT failcodes FROM "+DB_schema+"."+DB_table.replace("chk_", "err_").replace("gcp_", "err_")+" WHERE id_0 = 1"
                     cur.execute(dbkald)
                     FailCodes = str(cur.fetchone()[0]).split("\n")
-               
+
                 except psycopg2.DatabaseError, e:
-                    
+
                     if conn:
                         conn.rollback()
-                    
-                    print 'Error %s' % e    
+
+                    print 'Error %s' % e
                     sys.exit(1)
-                    
+
                 finally:
-                    
+
                     if conn:
                         conn.close()
 
             pass
 
     def qc_nextstep(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
         global ccdb_svar
 
@@ -529,20 +530,20 @@ class HotStepper(QDialog):
             ccdb_svar = ccdb_svar.strip("(").strip(")").strip(",")
 
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'locked\' WHERE id_0 = "+ccdb_svar
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_user\" = \'"+CHKuser+"\' WHERE id_0 = "+ccdb_svar
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = \'"+str(datetime.now())+"\' WHERE id_0 = "+ccdb_svar
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
 
             #zoom til feature
             dbkald = "SELECT st_astext(geom) FROM "+DB_schema+"."+DB_table+" WHERE id_0 = "+ccdb_svar
             cur.execute(dbkald)
             geometri = str(cur.fetchone()[0])
-        
+
             gem = QgsGeometry.fromWkt(geometri)
             box = gem.boundingBox()
             iface.mapCanvas().setExtent(box)
@@ -552,26 +553,39 @@ class HotStepper(QDialog):
         pass
 
     def qc_ok(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
         global ccdb_svar
         #set aktuelle feature til ok
         dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'OK\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)
         conn.commit()
-        
+
         self.iface.mapCanvas().refresh()
         self.qc_nextstep()
         pass
 
     def qc_fejl(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
         global ccdb_svar
         #set aktuelle feature til fail
         self.dlg.show()
 
-        #FailCodes = ['Clouds\nBridge\nBuilding']
         self.dlg.comboBox.clear()
         self.dlg.comboBox.addItems(FailCodes)
 
@@ -588,30 +602,37 @@ class HotStepper(QDialog):
             conn.commit()
 
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = \'"+str(datetime.now())+"\' WHERE id_0 = "+ccdb_svar
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
 
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_comment\" = \'" + self.dlg.textEdit.toPlainText() +"\' WHERE id_0 = "+ccdb_svar
             cur.execute(dbkald)
-            conn.commit()   
-        
+            conn.commit()
+
             self.iface.mapCanvas().refresh()
             self.qc_nextstep()
             pass
-            
+
     def qc_genlaes(self):
         global ccdb_svar
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'Fail\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)
         conn.commit()
-        
+
         self.iface.mapCanvas().refresh()
-            
+
         pass
 
     def qc_lock(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
 
         cLayer = self.iface.activeLayer()
@@ -620,19 +641,26 @@ class HotStepper(QDialog):
         for feat in selection:
             fID = feat["Id_0"]
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'locked\' WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_user\" = \'"+CHKuser+"\' WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = \'"+str(datetime.now())+"\' WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
         conn.commit()
 
         self.iface.mapCanvas().refresh()
-            
+
         pass
 
     def qc_reset(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
 
         cLayer = self.iface.activeLayer()
@@ -643,16 +671,23 @@ class HotStepper(QDialog):
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'pending\' WHERE id_0 = "+str(fID)
             cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = null WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
         conn.commit()
 
         self.iface.mapCanvas().refresh()
-            
+
         pass
 
     def qc_multiok(self):
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
 
         cLayer = self.iface.activeLayer()
@@ -663,74 +698,81 @@ class HotStepper(QDialog):
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'OK\' WHERE id_0 = "+str(fID)
             cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_user\" = \'"+CHKuser+"\' WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             dbkald = "update "+DB_schema+"."+DB_table+" set \"chk_date\" = \'"+str(datetime.now())+"\' WHERE id_0 = "+str(fID)
-            cur.execute(dbkald)            
+            cur.execute(dbkald)
             conn.commit()
         conn.commit()
 
         self.iface.mapCanvas().refresh()
-            
+
         pass
 
     def gcp_measure(self):
 
         self.canvas.setMapTool(self.clickTool)
-            
+
         pass
 
     def gcp_mapclick(self, point, button):
         self.canvas.setMapTool(QgsMapToolPan(self.canvas))
 
-        conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
+        conn = psycopg2.connect(
+            "dbname={name} user={user} host={host} password={pswd}".format(
+                name=self.settings.value('db_name'),
+                user=self.settings.value('db_user'),
+                host=self.settings.value('db_host'),
+                pswd=self.settings.value('db_password'),
+            )
+        )
         cur = conn.cursor()
         global ccdb_svar
 
         # QMessageBox.information(None, "type", DB_table)
         dbkald = "SELECT ST_AsText(ST_Centroid(geom)) FROM "+ DB_schema+"."+DB_table +" where id_0 = " +ccdb_svar
         cur.execute(dbkald)
-        
+
         g_cent = str(cur.fetchone()[0])
         g_x = QgsGeometry.fromWkt(g_cent).asPoint().x()
         g_y = QgsGeometry.fromWkt(g_cent).asPoint().y()
         diff = math.sqrt((point.y()-g_y)*(point.y()-g_y)+(point.y()-g_y)*(point.y()-g_y))
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"g_x\" = \'"+str(g_x)+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"g_y\" = \'"+str(g_y)+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"m_x\" = \'"+str(point.x())+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"m_y\" = \'"+str(point.y())+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
-        
+
         dbkald = "update "+DB_schema+"."+DB_table+" set \"diff_x\" = \'"+str(point.x()-g_x)+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"diff_y\" = \'"+str(point.y()-g_y)+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
-        
+
         dbkald = "update "+DB_schema+"."+DB_table+" set \"diff\" = \'"+str(diff)+"\' WHERE id_0 = "+ccdb_svar
-        cur.execute(dbkald)            
+        cur.execute(dbkald)
         conn.commit()
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'OK\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)
         conn.commit()
-        
+
         self.iface.mapCanvas().refresh()
         self.qc_nextstep()
         pass
-        
+
     def update1(self, inputLayer):
         changedLayer = ftools_utils.getVectorLayerByName(unicode(inputLayer))
         changedField = ftools_utils.getFieldList(changedLayer)

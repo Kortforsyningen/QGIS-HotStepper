@@ -44,8 +44,8 @@ ccdb_svar = '1'
 DB_name = "oeffegris"
 DB_host = "localhost"
 DB_port = "5432"
-DB_user = "***REMOVED***"
-DB_pass = "***REMOVED***"
+DB_user = "postgres"
+DB_pass = "postgres"
 
 DB_schema = "public"
 DB_table = "tiletest_kontrol"
@@ -94,12 +94,12 @@ class HotStepper(QDialog):
         
         #setup DB connection
 	dbname = 'oeffegris'
-	user = '***REMOVED***'
+	user = 'postgres'
 	host = 'localhost'
-	password = '***REMOVED***'
+	password = 'postgres'
 	
 	conn = psycopg2.connect("dbname="+dbname+" user="+user+" host="+host+" password="+password)
-       #conn = psycopg2.connect("dbname='oeffegris' user='***REMOVED***' host='localhost' password='***REMOVED***'")
+       #conn = psycopg2.connect("dbname='oeffegris' user='postgres' host='localhost' password='postgres'")
 	cur = conn.cursor()
         
         #set global attributes
@@ -273,12 +273,12 @@ class HotStepper(QDialog):
             # substitute with your code.
             if self.qcs.radioButton.isChecked():
                 uri = QgsDataSourceURI()
-               #uri.setConnection("localhost", "5432", "oeffegris", "***REMOVED***", "***REMOVED***")
+               #uri.setConnection("localhost", "5432", "oeffegris", "postgres", "postgres")
                #uri.setDataSource("public", "tiletest_kontrol", "geom","")
                 uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
                 uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                 uri.uri()
-                iface.addVectorLayer(uri.uri(), "HotStepping", "***REMOVED***")
+                iface.addVectorLayer(uri.uri(), "HotStepping", "postgres")
                 ccdb_svar = 1
         
             if self.qcs.radioButton_2.isChecked():
@@ -290,7 +290,7 @@ class HotStepper(QDialog):
 
                 #con = None
                 try:
-                   #conn = psycopg2.connect("dbname='oeffegris' user='***REMOVED***' host='localhost' password='***REMOVED***'")
+                   #conn = psycopg2.connect("dbname='oeffegris' user='postgres' host='localhost' password='postgres'")
                     conn = psycopg2.connect("dbname="+DB_name+" user="+DB_user+" host="+DB_host+" password="+DB_pass)
                     cur = conn.cursor()
                     
@@ -332,7 +332,7 @@ class HotStepper(QDialog):
                     uri.setConnection(DB_host, DB_port, DB_name, DB_user, DB_pass)
                     uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                     uri.uri()
-                    iface.addVectorLayer(uri.uri(), DB_name, "***REMOVED***")
+                    iface.addVectorLayer(uri.uri(), DB_name, "postgres")
                     ccdb_svar = 1
 
                
@@ -387,7 +387,7 @@ class HotStepper(QDialog):
         cur = conn.cursor()
         global ccdb_svar
         #set aktuelle feature til ok
-        #QMessageBox.information(self.iface.mainWindow(),'Info',"OK hopper videre til nï¿½ste feature")
+        #QMessageBox.information(self.iface.mainWindow(),'Info',"OK hopper videre til næste feature")
        #dbkald = "update tiletest_kontrol set \"check_status\" = \'OK\' WHERE id_0 = "+self.ccdb_svar
         dbkald = "update "+DB_table+" set \"check_status\" = \'OK\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)
@@ -402,7 +402,7 @@ class HotStepper(QDialog):
         cur = conn.cursor()
         global ccdb_svar
         #set aktuelle feature til ok
-        #QMessageBox.information(self.iface.mainWindow(),'Info','sï¿½ttter '+self.ccdb_svar+' til FAIL')
+        #QMessageBox.information(self.iface.mainWindow(),'Info','sættter '+self.ccdb_svar+' til FAIL')
         self.dlg.show()
 
         FailCodes = ['Clouds','Bridge','Building']
@@ -450,6 +450,6 @@ class HotStepper(QDialog):
         
         self.iface.mapCanvas().refresh()
 
-        #QMessageBox.information(self.iface.mainWindow(),'Info',"Genlï¿½ser aktuelle feature")
+        #QMessageBox.information(self.iface.mainWindow(),'Info',"Genlæser aktuelle feature")
             
         pass
