@@ -20,19 +20,20 @@
  *                                                                         *
  ***************************************************************************/
 """
+from __future__ import absolute_import
 
 import os
 
-from PyQt4 import QtGui, uic
-from qgissettingmanager import SettingManager
-from qgissettingmanager.types import String
-from qgissettingmanager.setting import Scope
+from qgis.PyQt import QtWidgets, uic
+from .qgissettingmanager import SettingManager
+from .qgissettingmanager.types import String
+from .qgissettingmanager.setting import Scope
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'ui_HotStepper_settings.ui'))
 
 
-class HotStepper_settings(QtGui.QDialog, FORM_CLASS):
+class HotStepper_settings(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(HotStepper_settings, self).__init__(parent)

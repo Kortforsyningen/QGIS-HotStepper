@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>397</width>
-    <height>669</height>
+    <width>395</width>
+    <height>713</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>630</y>
+     <y>670</y>
      <width>341</width>
      <height>32</height>
     </rect>
@@ -163,7 +163,7 @@
      <x>10</x>
      <y>200</y>
      <width>371</width>
-     <height>421</height>
+     <height>461</height>
     </rect>
    </property>
    <property name="title">
@@ -257,26 +257,6 @@
      <string>Table name</string>
     </property>
    </widget>
-   <widget class="QComboBox" name="inField1">
-    <property name="geometry">
-     <rect>
-      <x>100</x>
-      <y>190</y>
-      <width>261</width>
-      <height>22</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QComboBox" name="inShapeA">
-    <property name="geometry">
-     <rect>
-      <x>100</x>
-      <y>160</y>
-      <width>261</width>
-      <height>22</height>
-     </rect>
-    </property>
-   </widget>
    <widget class="QLineEdit" name="inTableName">
     <property name="geometry">
      <rect>
@@ -323,11 +303,53 @@
      <string>Use existing QC DB</string>
     </property>
    </widget>
+   <widget class="QgsMapLayerComboBox" name="inShapeA">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>160</y>
+      <width>261</width>
+      <height>21</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QgsFieldComboBox" name="inField1">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>190</y>
+      <width>261</width>
+      <height>21</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QgsFieldComboBox" name="ortonamefield">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>420</y>
+      <width>331</width>
+      <height>27</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <zorder>groupBoxSettings</zorder>
   <zorder>button_box</zorder>
   <zorder>groupBoxCredentials</zorder>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsFieldComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgsfieldcombobox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QgsMapLayerComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgsmaplayercombobox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

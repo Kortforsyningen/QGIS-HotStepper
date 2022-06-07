@@ -26,45 +26,61 @@
 #
 #---------------------------------------------------------------------
 
-from PyQt4.QtCore import QObject, pyqtSignal, QSettings
-from qgis.core import QgsProject
+import abc
+
+from PyQt5.QtCore import QObject, pyqtSignal, QSettings
+from qgis.core import QgsProject, QgsMessageLog, Qgis, QgsSettings
+from enum import Enum
 
 
-# Regex to replace old class
-# (self.addSetting\(")(.*)(",\s*")(.*)(",\s*")(.*)(",\s*)(.*)\)
-# self.add_setting( $4( '$2', Scope.$6, $8) )
-
-# TODO python3 use enum instead
-class Scope(object):
+class Scope(Enum):
     Project = 1
     Global = 2
 
 
-class Setting(QObject):
-    valueChanged = pyqtSignal()
+class Setting():
+    def __init__(self, name: str, scope: Scope, default_value,
+                 object_type=None,
+                 project_read=lambda plugin, key, def_val: QgsProject.instance().readEntry(plugin, key, def_val)[0],
+                 project_write=lambda plugin, key, val: QgsProject.instance().writeEntry(plugin, key, val),
+                 qsettings_read=lambda key, def_val, object_type: QgsSettings().value(key, def_val, type=object_type),
+                 qsettings_write=lambda key, val: QgsSettings().setValue(key, val),
+                 allowed_values: list = None):
+        """
 
-    def __init__(self, name, scope, default_value, object_type, project_read, project_write, options={}):
-        QObject.__init__(self)
+        :param name:
+        :param scope:
+        :param default_value:
+        :param object_type:
+        :param project_read:
+        :param project_write:
+        :param allowed_values: optional list to limit the allowed values for the setting.
+        """
 
-        # TODO python3 check based on enum
-        if scope not in (Scope.Global, Scope.Project):
+        if not isinstance(scope, Scope):
             raise NameError('Scope of setting {} is not valid: {}'.format(name, scope))
-        self.check(default_value)
 
         # these will determined when set_plugin_name is called
         self.plugin_name = None
+
+        self._save_under_plugins = True
 
         self.name = name
         self.scope = scope
         self.default_value = default_value
         self.object_type = object_type
-        self.options = options
         self.project_read = project_read
         self.project_write = project_write
+        self.qsettings_read = qsettings_read
+        self.qsettings_write = qsettings_write
+        self.allowed_values = allowed_values
+
+        if not self.check(default_value):
+            raise NameError('Default value of setting {} is not valid: {}'.format(name, default_value))
 
     def read_out(self, value, scope):
         """
-        This method shall be overriden in type subclasses
+        This method shall be reimplemented in type subclasses
         to transform the output being read from project/global
         to the desired setting format (such as color for instance)
         """
@@ -72,7 +88,7 @@ class Setting(QObject):
 
     def write_in(self, value, scope):
         """
-        This method shall be overriden in type subclasses
+        This method shall be reimplemented in type subclasses
         to transform the desired setting format (such as color for instance)
         to the input to project/global settings
         """
@@ -80,58 +96,108 @@ class Setting(QObject):
 
     def check(self, value):
         """
-        This method shall be overriden in type subclasses
+        This method shall be reimplemented in type subclasses
         to check the validity of the value
         the implementation should raise errors
         """
         return True
 
-    def config_widget(self, widget):
+    @staticmethod
+    def supported_widgets() -> dict:
         """
-        This method must be reimplemented in subclasses
+        This method shall be reimplemented in type subclasses
+        :return: a dictionary of widget_class => setting_widget_class
+        """
+        pass
+
+    @staticmethod
+    def fallback_widget(widget):
+        """
+        Optional virtual method to
+        :param widget: the input widget
+        :return: a SettingWidget implementation
         """
         return None
+
+    def config_widget(self, widget):
+        """
+        Returns the SettingWidget implementation for a given widget
+        :raise NameError if the widget is not supported
+        """
+        for widget_type, setting_widget_class in self.supported_widgets().items():
+            if isinstance(widget, widget_type):
+                return setting_widget_class(self, widget)
+        raise NameError("SettingManager does not handle {w} widgets for {t} at the moment (setting: {s})".format(
+            w=type(widget), t=type(self).__name__, s=self.name)
+        )
+
+    def _check(self, value) -> bool:
+        """
+        Private checking method: will trigger the sub-classed check and perform global checks
+        :param value: the value to be checked
+        :return: True if the value is correct
+        """
+        if not self.check(value):
+            return False
+        if self.allowed_values and value not in self.allowed_values:
+            self.info('{}:: Invalid value for setting {}: {}. It should be within the list of values: {}.'
+                      .format(self.plugin_name, self.name, value, self.allowed_values),
+                      Qgis.Warning)
+            return False
+        return True
 
     def set_plugin_name(self, plugin_name):
         self.plugin_name = plugin_name
 
-    def global_name(self):
-        return 'plugins/{}/{}'.format(self.plugin_name, self.name)
+    @property
+    def save_under_plugins(self):
+        return self._save_under_plugins
 
-    def set_value(self, value):
-        self.check(value)
+    @save_under_plugins.setter
+    def save_under_plugins(self, value: bool):
+        self._save_under_plugins = value
+
+    def global_name(self):
+        if self.save_under_plugins:
+            return 'plugins/{}/{}'.format(self.plugin_name, self.name)
+        else:
+            return '{}/{}'.format(self.plugin_name, self.name)
+
+    def set_value(self, value) -> bool:
+        """
+        Sets the value for the setting
+        :return: True if the setting was written
+        """
+        # checking should be made before write_in
+        if not self._check(value):
+            return False
         value = self.write_in(value, self.scope)
         if self.scope == Scope.Global:
-            QSettings().setValue(self.global_name(), value)
+            self.qsettings_write(self.global_name(), value)
         elif self.scope == Scope.Project:
             self.project_write(self.plugin_name, self.name, value)
-        self.valueChanged.emit()
+        return True
 
     def value(self):
         if self.scope == Scope.Global:
             if self.object_type is not None:
-                value = QSettings().value(self.global_name(), self.write_in(self.default_value, self.scope), type=self.object_type)
+                value = self.qsettings_read(self.global_name(), self.write_in(self.default_value, self.scope), object_type=self.object_type)
             else:
-                value = QSettings().value(self.global_name(), self.write_in(self.default_value, self.scope))
-            # TODO python3: remove backward compatibility
-            # try to gather old setting value (using old version of QGIS Setting Manager)
-            if self.read_out(value, self.scope) == self.default_value:
-                if self.object_type is not None:
-                    value = QSettings(self.plugin_name, self.plugin_name).value(self.name,
-                                                                                self.write_in(self.default_value, self.scope),
-                                                                                type=self.object_type)
-                else:
-                    value = QSettings(self.plugin_name, self.plugin_name).value(self.name,
-                                                                                self.write_in(self.default_value, self.scope))
-                if self.read_out(value, self.scope) != self.default_value:
-                    # rewrite the setting in new system
-                    QSettings().setValue(self.global_name(), value)
-        elif self.scope == Scope.Project:
-            value = self.project_read(self.plugin_name, self.name, self.write_in(self.default_value, self.scope))[0]
-        return self.read_out(value, self.scope)
+                value = self.qsettings_read(self.global_name(), self.write_in(self.default_value, self.scope))
+        elif self.scope is Scope.Project:
+            value = self.project_read(self.plugin_name, self.name, self.write_in(self.default_value, self.scope))
+        value = self.read_out(value, self.scope)
+        # checking should be made after read_out
+        if not self._check(value):
+            return self.default_value
+        else:
+            return value
 
     def reset_default(self):
-        if self.scope == Scope.Project:
+        if self.scope is Scope.Project:
             QgsProject.instance().removeEntry(self.plugin_name, self.name)
         else:
             QSettings().remove(self.global_name())
+
+    def info(self, msg="", level=Qgis.Info):
+        QgsMessageLog.logMessage('{} {}'.format(self.__class__.__name__, msg), 'QgsSettingManager', level)

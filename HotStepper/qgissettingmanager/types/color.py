@@ -28,22 +28,30 @@
 
 
 # options:
-# dialogTitle: show in color dialog
-# alpha: use or not alpha channel
+# dialog_title: show in color dialog
+# allow_alpha: use or not alpha channel
 
-
-from PyQt4.QtGui import QColor, QColorDialog
-from qgis.core import QgsProject
-from qgis.gui import QgsColorButton, QgsColorButtonV2
+from PyQt5.QtGui import QColor
+from qgis.core import QgsProject, Qgis, QgsSettings
+from qgis.gui import QgsColorButton
 
 from ..setting import Setting
-from ..setting_widget import SettingWidget
+from ..widgets import QgisColorWidget, StandardColorWidget
 
 
 class Color(Setting):
 
-    def __init__(self, name, scope, default_value, options={}):
-        Setting.__init__(self, name, scope, default_value, None, QgsProject.instance().readListEntry, QgsProject.instance().writeEntry, options)
+    def __init__(self, name, scope, default_value, allow_alpha: bool = False, dialog_title: str = '', **kwargs):
+        Setting.__init__(self, name, scope, default_value,
+                         object_type=None,
+                         qsettings_read=lambda key, def_val: QgsSettings().value(key, def_val),
+                         qsettings_write=lambda key, val: QgsSettings().setValue(key, val),
+                         project_read=lambda plugin, key, def_val: QgsProject.instance().readListEntry(plugin, key, def_val)[0],
+                         **kwargs)
+        assert isinstance(allow_alpha, type(True))
+        assert isinstance(dialog_title, str)
+        self.allow_alpha = allow_alpha
+        self.dialog_title = dialog_title
 
     def read_out(self, value, scope):
         if type(value) not in (list, tuple) or len(value) not in (3, 4):
@@ -53,58 +61,32 @@ class Color(Setting):
             r = int(value[0])
             g = int(value[1])
             b = int(value[2])
-            a = int(value[3]) if len(value) > 3 and self.options.get("allowAlpha", False) else 255
+            a = int(value[3]) if len(value) > 3 and self.allow_alpha else 255
             return QColor(r, g, b, a)
 
     def write_in(self, value, scope):
-        if self.options.get("allowAlpha", False):
+        if self.allow_alpha:
             return ["%u" % value.red(), "%u" % value.green(), "%u" % value.blue(), "%u" % value.alpha()]
         else:
             return ["%u" % value.red(), "%u" % value.green(), "%u" % value.blue()]
 
-    def check(self, color):
-        if type(color) != QColor:
-            raise NameError("Color setting %s must be a QColor." % self.name)
+    def check(self, value: QColor):
+        if type(value) != QColor:
+            self.info('{}:: Invalid value for setting {}: {}. It must be a QColor.'
+                      .format(self.plugin_name, self.name, value),
+                      Qgis.Warning)
+            return False
+        return True
 
-    def config_widget(self, widget):
-        if type(widget) in (QgsColorButton, QgsColorButtonV2):
-            return QgisColorWidget(self, widget, self.options)
-        else:
-            return StandardColorWidget(self, widget, self.options)
+    @staticmethod
+    def supported_widgets():
+        return {
+            QgsColorButton: QgisColorWidget
+        }
 
-
-class QgisColorWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.colorChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-        if type(self.widget) == QgsColorButton:
-            self.widget.setColorDialogOptions(QColorDialog.ShowAlphaChannel)
-        else:
-            self.widget.setAllowAlpha(self.options.get("allowAlpha", False))
-
-    def set_widget_value(self, value):
-        self.widget.setColor(value)
-
-    def widget_value(self):
-        return self.widget.color()
-
-
-class StandardColorWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        txt = options.get("dialogTitle", "")
-        color_widget = QgsColorButtonV2(widget, txt)
-        signal = color_widget.colorChanged
-
-        SettingWidget.__init__(self, setting, color_widget, options, signal)
-        self.widget.setAllowAlpha(self.options.get("allowAlpha", False))
-
-    def set_widget_value(self, value):
-        self.widget.setColor(value)
-
-    def widget_value(self):
-        return self.widget.color()
-
+    @staticmethod
+    def fallback_widget(widget):
+        return StandardColorWidget
 
 
 

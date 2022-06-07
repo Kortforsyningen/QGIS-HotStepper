@@ -20,8 +20,15 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt4.QtCore import * #QSettings, QTranslator, qVersion, QCoreApplication
-from PyQt4.QtGui import * #QAction, QIcon
+from __future__ import print_function
+from builtins import str
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QMessageBox
+from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QShortcut
+from qgis.PyQt.QtGui import QKeySequence
 from qgis.core import *
 from qgis.gui import *
 from qgis.utils import *
@@ -29,15 +36,13 @@ from datetime import datetime
 #from osgeo import ogr
 
 # Initialize Qt resources from file resources.py
-import resources_rc
+from . import resources_rc
 
 # Import the code for the dialog
-from HotStepper_dialog import HotStepperDialog
-from HotStepper_settings_dialog import HotStepper_settings, HotStepperDBSettings
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from .HotStepper_dialog import HotStepperDialog
+from .HotStepper_settings_dialog import HotStepper_settings, HotStepperDBSettings
+
 import os.path
-import ftools_utils
 import psycopg2
 import getpass
 import math
@@ -117,43 +122,31 @@ class HotStepper(QDialog):
         #     QMessageBox.information(None, "HotButton", "Key_0 pressed")
         #     self.gcp_mapclick()
 
-        short1 = QShortcut(QKeySequence(Qt.Key_V), iface.mainWindow())
-        short1.setContext(Qt.ApplicationShortcut)
-        short1.activated.connect(self.qc_ok)
+        #short1 = QShortcut(QKeySequence(Qt.Key_F5), self.iface.mainWindow())
+        #short1.setContext(Qt.ApplicationShortcut)
+        #short1.activated.connect(self.qc_ok)
 
-        short2 = QShortcut(QKeySequence(Qt.Key_G), iface.mainWindow())
-        short2.setContext(Qt.ApplicationShortcut)
-        short2.activated.connect(self.gcp_measure)
+        #short2 = QShortcut(QKeySequence(Qt.Key_F4), self.iface.mainWindow())
+        #short2.setContext(Qt.ApplicationShortcut)
+        #short2.activated.connect(self.gcp_measure)
 
-        short3 = QShortcut(QKeySequence(Qt.Key_X), iface.mainWindow())
-        short3.setContext(Qt.ApplicationShortcut)
-        short3.activated.connect(self.qc_fejl)
+        #short3 = QShortcut(QKeySequence(Qt.Key_X), iface.mainWindow())
+        #short3.setContext(Qt.ApplicationShortcut)
+        #short3.activated.connect(self.qc_fejl)
 
-        short4 = QShortcut(QKeySequence(Qt.Key_R), iface.mainWindow())
-        short4.setContext(Qt.ApplicationShortcut)
-        short4.activated.connect(self.qc_nextstep)
+        #short4 = QShortcut(QKeySequence(Qt.Key_F2), iface.mainWindow())
+        #short4.setContext(Qt.ApplicationShortcut)
+        #short4.activated.connect(self.qc_nextstep)
 
         #set mapclicktool
         self.canvas = self.iface.mapCanvas()
         self.clickTool = QgsMapToolEmitPoint(self.canvas)
-        QObject.connect(self.clickTool, SIGNAL("canvasClicked(const QgsPoint &, Qt::MouseButton)"), self.gcp_mapclick)
+        self.clickTool.canvasClicked.connect(self.gcp_mapclick)
 
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
-        """Get the translation for a string using Qt translation API.
-
-        We implement this ourselves since we do not inherit QObject.
-
-        :param message: String for translation.
-        :type message: str, QString
-
-        :returns: Translated version of message.
-        :rtype: QString
-        """
-        # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('HotStepper', message)
-
 
     def add_action(
         self,
@@ -166,44 +159,6 @@ class HotStepper(QDialog):
         status_tip=None,
         whats_this=None,
         parent=None):
-        """Add a toolbar icon to the toolbar.
-
-        :param icon_path: Path to the icon for this action. Can be a resource
-            path (e.g. ':/plugins/foo/bar.png') or a normal file system path.
-        :type icon_path: str
-
-        :param text: Text that should be shown in menu items for this action.
-        :type text: str
-
-        :param callback: Function to be called when the action is triggered.
-        :type callback: function
-
-        :param enabled_flag: A flag indicating if the action should be enabled
-            by default. Defaults to True.
-        :type enabled_flag: bool
-
-        :param add_to_menu: Flag indicating whether the action should also
-            be added to the menu. Defaults to True.
-        :type add_to_menu: bool
-
-        :param add_to_toolbar: Flag indicating whether the action should also
-            be added to the toolbar. Defaults to True.
-        :type add_to_toolbar: bool
-
-        :param status_tip: Optional text to show in a popup when mouse pointer
-            hovers over the action.
-        :type status_tip: str
-
-        :param parent: Parent widget for the new action. Defaults None.
-        :type parent: QWidget
-
-        :param whats_this: Optional text to show in the status bar when the
-            mouse pointer hovers over the action.
-
-        :returns: The action that was created. Note that the action is also
-            added to self.actions list.
-        :rtype: QAction
-        """
 
         icon = QIcon(icon_path)
         action = QAction(icon, text, parent)
@@ -307,17 +262,18 @@ class HotStepper(QDialog):
         """Run method that performs all the real work"""
         # show the dialog
         self.qcs.show()
-        QObject.connect(self.qcs.inShapeA, SIGNAL("currentIndexChanged(QString)" ), self.update1 )
-        QObject.connect(self.qcs.checkBoxGCP, SIGNAL("clicked()" ), self.fillFailCodes )
-
+        self.qcs.inShapeA.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.qcs.inShapeA.layerChanged.connect(self.update1)
+        self.qcs.checkBoxGCP.clicked.connect(self.fillFailCodes)
         self.qcs.radioButton.toggle()
+        self.qcs.inTableA.currentIndexChanged.connect(self.tableChanged)
 
-        lyrs = self.iface.legendInterface().layers()
-        lyr_list = []
-        for layer in lyrs:
-            lyr_list.append(layer.name())
-        self.qcs.inShapeA.clear()
-        self.qcs.inShapeA.addItems(lyr_list)
+        # lyrs = self.iface.legendInterface().layers()
+        # lyr_list = []
+        # for layer in lyrs:
+        #     lyr_list.append(layer.name())
+        # self.qcs.inShapeA.clear()
+        # self.qcs.inShapeA.addItems(lyr_list)
 
         self.settings.set_value('db_name', self.qcs.db_name.text())
         self.settings.set_value('db_host', self.qcs.db_host.text())
@@ -340,7 +296,7 @@ class HotStepper(QDialog):
             rows = cur.fetchall()
         except(psycopg2.OperationalError):
             QMessageBox.information(None, "DB connection", "Cannot connect to database")
-            pass
+            return
 
         tableList = []
         for e in rows:
@@ -360,7 +316,7 @@ class HotStepper(QDialog):
             if self.qcs.radioButton.isChecked():
                 DB_table = self.qcs.inTableA.currentText()
 
-                uri = QgsDataSourceURI()
+                uri = QgsDataSourceUri()
                 uri.setConnection(
                     self.settings.value('db_host'),
                     self.settings.value('db_port'),
@@ -379,12 +335,15 @@ class HotStepper(QDialog):
                     DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\GCP.qml")
                 else:
                     dbkald = "SELECT ST_GeometryType(st_astext(geom)) FROM "+DB_schema+"."+DB_table+" WHERE id_0 = 1"
+                    print(dbkald)
                     cur.execute(dbkald)
+                    #print(str(cur.fetchone()[0]))
                     typen = str(cur.fetchone()[0])
+                    print(typen + " set legend")
                     #QMessageBox.information(None, "geometritype", typen)
                     if typen == "ST_Polygon" or typen == "ST_MultiPolygon":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Polygons.qml")
-                    elif typen == "ST_Point":
+                    elif typen == "ST_Point" or typen == "ST_MultiPoint":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Points.qml")
                     elif typen == "ST_LineString":
                         DBlaget.loadNamedStyle(os.path.dirname(__file__)+"\\Lines.qml")
@@ -432,6 +391,7 @@ class HotStepper(QDialog):
 
 
                     if self.qcs.checkBoxGCP.isChecked():
+                        #cur.execute("CREATE TABLE "+DB_schema+"."+DB_table+"(Id_0 INTEGER PRIMARY KEY,JoinID text, check_status text, check_user text, chk_date timestamp without time zone, chk_comment text, fail_code text, g_x real, g_y real, m_x real, m_y real, diff_x real, diff_y real, diff real,qcorto text, geom geometry)")
                         cur.execute("CREATE TABLE "+DB_schema+"."+DB_table+"(Id_0 INTEGER PRIMARY KEY,JoinID text, check_status text, check_user text, chk_date timestamp without time zone, chk_comment text, fail_code text, g_x real, g_y real, m_x real, m_y real, diff_x real, diff_y real, diff real, geom geometry)")
                     else:
                         cur.execute("CREATE TABLE "+DB_schema+"."+DB_table+"(Id_0 INTEGER PRIMARY KEY,JoinID text, check_status text, check_user text, chk_date timestamp without time zone, chk_comment text, fail_code text, geom geometry)")
@@ -453,28 +413,38 @@ class HotStepper(QDialog):
 
                             tableID = 1
                             for feat in selection:
-                               geom = feat.geometry()
+                                # QCorto = ''
+                                # try:
+                                #     QCorto = feat[self.qcs.ortonamefield.currentText()]
+                                #     QCorto = 'c:/temp/COWStemp/jpeg/O'+ QCorto + '.tif'
+                                # except:
+                                #     QCorto = ''
+                                geom = feat.geometry()
+                                JoinID = feat[inputField]
 
-                               if (layer.geometryType() == 2):
-                                   typen = "polygon"
-                               elif (layer.geometryType() == 0):
-                                   typen = "punkt"
-                               elif (layer.geometryType() == 1):
-                                   typen = "linie"
+                                if self.qcs.checkBoxGCP.isChecked():
+                                    typen = "punkt"
+                                    geom = geom.centroid()
+                                    #cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,-99.0,'"+QCorto+"',ST_GeomFromText('"+geom.asWkt()+"'));")
+                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,-99.0,ST_GeomFromText('"+geom.asWkt()+"'));")
+                                else:
 
-                               JoinID = feat[inputField]
-                               if self.qcs.checkBoxGCP.isChecked():
-                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,0.0,0.0,0.0,0.0,0.0,0.0,-99.0,ST_GeomFromText('"+geom.exportToWkt()+"'));")
-                               else:
-                                   cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,ST_GeomFromText('"+geom.exportToWkt()+"'));")
-                               tableID = tableID+1
+                                    if (layer.geometryType() == 2):
+                                        typen = "polygon"
+                                    elif (layer.geometryType() == 0):
+                                        typen = "punkt"
+                                    elif (layer.geometryType() == 1):
+                                        typen = "linie"
+
+                                    cur.execute("INSERT INTO "+DB_schema+"."+DB_table+" VALUES("+str(tableID)+",'"+str(JoinID)+"','pending',null,null,null,null,ST_GeomFromText('"+geom.asWkt()+"'));")
+                                tableID = tableID+1
 
                     conn.commit()
 
                     #QMessageBox.information(None, "test input", "her2")
                     time.sleep(4)
 
-                    uri = QgsDataSourceURI()
+                    uri = QgsDataSourceUri()
                     uri.setConnection(self.settings.value('db_host'), self.settings.value('db_port'), self.settings.value('db_name'), self.settings.value('db_user'), self.settings.value('db_password'))
                     uri.setDataSource(DB_schema, DB_table, DB_geom,"")
                     uri.uri()
@@ -496,12 +466,12 @@ class HotStepper(QDialog):
                     cur.execute(dbkald)
                     FailCodes = str(cur.fetchone()[0]).split("\n")
 
-                except psycopg2.DatabaseError, e:
+                except psycopg2.DatabaseError as e:
 
                     if conn:
                         conn.rollback()
 
-                    print 'Error %s' % e
+                    print('Error %s' % e)
                     sys.exit(1)
 
                 finally:
@@ -523,10 +493,24 @@ class HotStepper(QDialog):
         cur = conn.cursor()
         global ccdb_svar
 
-        try:
-            dbkald = "SELECT id_0 FROM "+DB_schema+"."+DB_table+" WHERE \"check_status\" = \'pending\' OR (\"check_status\" = \'locked\' AND \"check_user\" = \'"+CHKuser+"\') ORDER BY \"check_status\" || \"id_0\"     "
+        if(1>0):
+        #try:
+            ## Her unloades tidligere QC-orto
+            lyrs = [layer for layer in QgsProject.instance().mapLayers().values()]
+            for layer in lyrs:
+                if layer.name()[:3] == 'qco':
+                    # print layer.name()
+                    QgsMapLayerRegistry.instance().removeMapLayers([layer.id()])
+            ##
+
+            dbkald = "SELECT id_0 FROM "+DB_schema+"."+DB_table+" WHERE \"check_status\" = \'pending\' OR (\"check_status\" = \'locked\' AND \"check_user\" = \'"+CHKuser+"\') ORDER BY \"check_status\" || reverse(joinid) || \"id_0\"     "
             cur.execute(dbkald)
             ccdb_svar = str(cur.fetchone())
+            print(ccdb_svar)
+            if (ccdb_svar == "None"):
+                QMessageBox.information(None, "QC info", 'All done, nothing to check')
+                return
+
             ccdb_svar = ccdb_svar.strip("(").strip(")").strip(",")
 
             dbkald = "update "+DB_schema+"."+DB_table+" set \"check_status\" = \'locked\' WHERE id_0 = "+ccdb_svar
@@ -548,9 +532,29 @@ class HotStepper(QDialog):
             box = gem.boundingBox()
             iface.mapCanvas().setExtent(box)
             iface.mapCanvas().refresh()
-        except(psycopg2.ProgrammingError):
-            QMessageBox.information(None, "QC info", 'All done, nothing to check')
-        pass
+
+            ## Her loades QC-orto
+            # dbkald = "SELECT qcorto FROM "+DB_schema+"."+DB_table+" WHERE id_0 = "+ccdb_svar
+            # print(dbkald)
+            # cur.execute(dbkald)
+
+            # QCo_path = str(cur.fetchone()[0])
+            # root = QgsProject.instance().layerTreeRoot()
+
+            # layer_qco = QgsRasterLayer(QCo_path, 'qco')
+            # layer_qco.setCrs(QgsCoordinateReferenceSystem(25832, QgsCoordinateReferenceSystem.EpsgCrsId))
+
+            # QgsMapLayerRegistry.instance().addMapLayer(layer_qco, False)
+            # root.addLayer(layer_qco)
+
+
+            #QgsMapLayerRegistry.instance().addMapLayer(layer_qco)
+            ##
+
+
+        #except(psycopg2.ProgrammingError):
+        #    QMessageBox.information(None, "QC info", 'All done, nothing to check')
+        #pass
 
     def qc_ok(self):
         conn = psycopg2.connect(
@@ -735,7 +739,7 @@ class HotStepper(QDialog):
         g_cent = str(cur.fetchone()[0])
         g_x = QgsGeometry.fromWkt(g_cent).asPoint().x()
         g_y = QgsGeometry.fromWkt(g_cent).asPoint().y()
-        diff = math.sqrt((point.y()-g_y)*(point.y()-g_y)+(point.y()-g_y)*(point.y()-g_y))
+        diff = math.sqrt((point.x()-g_x)*(point.x()-g_x)+(point.y()-g_y)*(point.y()-g_y))
 
         dbkald = "update "+DB_schema+"."+DB_table+" set \"g_x\" = \'"+str(g_x)+"\' WHERE id_0 = "+ccdb_svar
         cur.execute(dbkald)
@@ -773,24 +777,40 @@ class HotStepper(QDialog):
         self.qc_nextstep()
         pass
 
-    def update1(self, inputLayer):
-        changedLayer = ftools_utils.getVectorLayerByName(unicode(inputLayer))
-        changedField = ftools_utils.getFieldList(changedLayer)
-        self.qcs.inField1.clear()
-        for f in changedField:
-            #if f.type() == QVariant.Int or f.type() == QVariant.String:
-            self.qcs.inField1.addItem(unicode(f.name()))
+    def update1(self):
+        #if not self.isVisible():
+        #    return
+        layer = self.qcs.inShapeA.currentLayer()
+        #self.qcs.inField1.clear()
+        self.qcs.inField1.setLayer(layer)
+        self.qcs.ortonamefield.setLayer(layer)
+        #if layer:
+        #    self.inField1.setField('description')
+        self.qcs.radioButton_2.toggle()
         self.checkA()
         pass
 
+    # def update_ortonamefield(self, inputLayer):
+    #     changedLayer = ftools_utils.getVectorLayerByName(str(inputLayer))
+    #     changedField = ftools_utils.getFieldList(changedLayer)
+    #     self.qcs.ortonamefield.clear()
+    #     for f in changedField:
+    #         #if f.type() == QVariant.Int or f.type() == QVariant.String:
+    #         self.qcs.ortonamefield.addItem(str(f.name()))
+    #     pass
+
+    def tableChanged(self):
+        self.qcs.radioButton.toggle()
+        pass
+
     def checkA(self):
-        inputLayer = unicode( self.qcs.inShapeA.currentText() )
-        if inputLayer != "":
-            changedLayer = ftools_utils.getVectorLayerByName( inputLayer )
-        if changedLayer.selectedFeatureCount() != 0:
-            self.qcs.useSelectedA.setCheckState( Qt.Checked )
+        inputLayer = self.qcs.inShapeA.currentLayer()
+        if inputLayer.selectedFeatureCount() != 0:
+            print ("set checked")
+            self.qcs.useSelectedA.setChecked(True)
         else:
-            self.qcs.useSelectedA.setCheckState( Qt.Unchecked )
+            print ("set unchecked")
+            self.qcs.useSelectedA.setChecked(False)
         pass
 
     def fillFailCodes(self):

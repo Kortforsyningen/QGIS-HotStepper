@@ -26,26 +26,24 @@
 #
 #---------------------------------------------------------------------
 
+import json
 
-# for combobox, the value corresponds to the index of the combobox
+from qgis.core import Qgis
 
-from PyQt5.QtWidgets import QLineEdit, QSpinBox, QSlider, QComboBox
-from qgis.core import QgsProject, Qgis
-
-from ..setting import Setting
-from ..widgets import LineEditIntegerWidget, SpinBoxIntegerWidget, ComboBoxIntegerWidget
+from ..setting import Setting, Scope
 
 
-class Integer(Setting):
+class List(Setting):
     def __init__(self, name, scope, default_value, **kwargs):
-        Setting.__init__(self, name, scope, default_value,
-                         object_type=int,
-                         project_read=lambda plugin, key, def_val: QgsProject.instance().readNumEntry(plugin, key, def_val)[0],
-                         **kwargs)
+        assert scope == Scope.Global
+        Setting.__init__(
+            self, name, scope, default_value,
+            object_type=list,
+            **kwargs)
 
     def check(self, value):
-        if type(value) != int and type(value) != float:
-            self.info('{}:: Invalid value for setting {}: {}. It must be an integer.'
+        if value is not None and type(value) is not list:
+            self.info('{}:: Invalid value for setting {}: {}. It must be a list.'
                       .format(self.plugin_name, self.name, value),
                       Qgis.Warning)
             return False
@@ -53,11 +51,4 @@ class Integer(Setting):
 
     @staticmethod
     def supported_widgets():
-        return {
-            QLineEdit: LineEditIntegerWidget,
-            QSpinBox: SpinBoxIntegerWidget,
-            QSlider: SpinBoxIntegerWidget,
-            QComboBox: ComboBoxIntegerWidget
-        }
-
-
+        return {}

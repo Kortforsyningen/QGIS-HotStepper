@@ -26,18 +26,24 @@
 #
 #---------------------------------------------------------------------
 
-from PyQt4.QtCore import pyqtSlot, QObject
+from PyQt5.QtCore import pyqtSlot, QObject
+from qgis.core import Qgis, QgsMessageLog
 
 
 class SettingWidget(QObject):
-    def __init__(self, setting, widget, options, signal):
+
+    DEBUG = False
+
+    def __init__(self, setting, widget, signal):
         QObject.__init__(self)
 
         self.setting = setting
         self.widget = widget
-        self.options = options
         self.signal = signal
         self.connected = False
+
+    def __repr__(self):
+        return 'SettingWidget: {} with value: {}'.format(self.setting.name, self.widget_value())
 
     def connect_widget_auto_update(self):
         """
@@ -66,17 +72,11 @@ class SettingWidget(QObject):
         """
         return None
 
-    def widget_test(self, value):
-        """
-        Method to test the UI, might be reimplemented in sub-class
-        Returns True if the test can be run, False otherwise
-        """
-        # this will skip the disconnect/connect
-        # so it should trigger the set_value_from_widget when in auto update mode
-        self.set_widget_value(value)
-        return True
-
     def set_widget_from_value(self):
+        if self.DEBUG:
+            msg = 'setting {} with value from widget {}'.format(self.setting.name, self.setting.value())
+            QgsMessageLog.logMessage('{}:: {}'.format(self.__class__.__name__, msg), 'Setting manager', Qgis.Info)
+
         reconnect = False
         if self.connected:
             reconnect = True
