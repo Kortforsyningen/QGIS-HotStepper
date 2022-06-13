@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/3nids/qgissettingmanager.svg?branch=master)](https://travis-ci.org/3nids/qgissettingmanager)
+[![Build Status](https://travis-ci.org/opengisch/qgissettingmanager.svg?branch=master)](https://travis-ci.org/opengisch/qgissettingmanager)
 
 ## About
 
@@ -11,7 +11,8 @@ This module can:
 * automatically **set widgets** of a dialog according to their **corresponding setting**
 * automatically **write settings from their corresponding widgets**
 
-A branch for QGIS 3 (Python 3, PyQt5, new API) is a work in progress. See https://github.com/3nids/qgissettingmanager/tree/qgis3
+You are looking at the documentation for **QGIS 3**. See the [qgis2](https://github.com/opengisch/qgissettingmanager/tree/qgis2) branch for QGIS 2.
+Current version requires QGIS 3.2 minimum (otherwise projection widgets are not supported).
 
 
 ## The main setting class
@@ -26,18 +27,20 @@ class MySettings(SettingManager):
         SettingManager.__init__(self, my_plugin_name)
         self.add_setting( Bool("my_setting", Scope.Global, True) )
 ```
-    
+
 You may add as many settings as you want using `add_setting` method:
 
 ```python
-add_setting( SettingClass( name, scope, default_value, options={} ) )
+add_setting( SettingClass( name, scope, default_value, allowed_values: list = None, **options ) )
 ```
 
-* `SettingClass`: `Bool`, `String`, `Color`, `Integer`, `Double` or `Stringlist`
+* `SettingClass`: `Bool`, `String`, `Color`, `Integer`, `Double`, `Stringlist` or `Dictionary`
 * `name`: the name of the setting
 * `scope`: `Scope.Global` or `Scope.Project`
 * `default_value`: the default value of the setting (type must correspond)
-* `options`: a dictionary of options for widgets (see [possible widgets](#possiblewidgets))
+* `allowed_values`: a list of authorized values. 
+If specified, the setting will fall back to `default_value` if an unauthorized value is provided.
+* `options`: additional options (see [possible widgets](#possiblewidgets))
 
 ### Access the settings
 
@@ -48,7 +51,7 @@ import MySettings
 self.settings = MySettings()
 ```
 
-The settings are easily accessed using the `value` and `set_value` methods:
+The settings are easily accessed using the `value` and `setValue` methods:
 
 ```python
 myVariable = self.settings.value("myVariable")
@@ -70,10 +73,11 @@ Then, your dialog class shall subclass the `SettingDialog` class:
 ```python
 class MyDialog(QDialog, Ui_myDialog, SettingDialog):
     def __init__(self):
-        QDialog.__init__(self)
+        settings = MySettings()
+        super.__init__(self, setting_manager=settings)
         self.setupUi(self)
-        self.settings = MySettings()
-        SettingDialog.__init__(self, self.settings)
+        self.settings = settings
+        self.init_widgets()
 ```
 
 Hence, when the dialog is shown, all widgets which are named according to a  setting will be set to the corresponding value. On dialog acceptance, the settings will be set according to the value read from their widget.
@@ -85,7 +89,7 @@ To control which setting has been associated to a widget, you can print `self.wi
 You can have a different behavior using `SettingDialog` parameters:
 
 ```python
-SettingDialog(settingManager, mode=UpdateMode.DialogAccept)
+super.__init__(self, setting_manager=settings, mode=UpdateMode.WidgetUpdate)
 ```
 
 `mode` can take the following values:
@@ -109,46 +113,94 @@ def showEvent(self, e):
     # do your own stuff
 ```
 
-<a name="possiblewidgets"/>
+
 ### Possible widgets
+<a name="possiblewidgets"/>
 
 The widgets are automatically detected by the manager. If the type of widget is not handled, an error is raised.
 
-**Strings**
+To access widget properties, get the widget after the initilization of setting widgets and set them afterwards.
+For instance:
+
+```python
+class MyDialog(QDialog, Ui_myDialog, SettingDialog):
+    def __init__(self):
+        settings = MySettings()
+        super.__init__(self, setting_manager=settings)
+        self.setupUi(self)
+        self.settings = settings
+        self.init_widgets()
+
+        list_table_widget: TableWidgetStringListWidget = self.setting_widget('my_list')
+        list_table_widget.column = 0  # to modify the column to be checked
+        list_table_widget.userdata = True  # to use UserData instead of Text
+        list_table_widget.invert = True   # to invert the checking 
+```
+
+
+**String**
 
 * `QLineEdit`
-* `QComboBox` (setting can be defined as the current item text or [data](http://qt-project.org/doc/qt-4.8/qcombobox.html#itemData): specify option `comboMode` as `data` (default) or `text`)
+* `QComboBox` 
+    * `mode`: additional option to define what is used to retrieve the setting. Can be `ComboMode.Text` or [`ComboMode.Data`](http://qt-project.org/doc/qt-5/qcombobox.html#itemData).
+    * `auto_populate()`: auto populates the combo box from the possible values (need to be defined). Mode will be set to `ComboMode.Data`.
 * `QButtonGroup` (the setting is set as the checked widget text in the button group)
 * `QgsMapLayerComboBox` uses layer ID for the setting value
+* `QgsFileWidget`
+* `QgsAuthConfigSelect`
 
-**Booleans**
+**Boolean**
 
 * `QCheckBox`
 * Any checkable widget (groupbox, etc.)
 
-**Colors**
+**Color**
 
-* Native QGIS widgets (QgsColorButton, QgsColorButtonV2) or any widget (label or pushbutton are recommended). For standard Qt Widgets, QGIS [color button](http://qgis.org/api/classQgsColorButtonV2.html)) will be used. Use options `allowAlpha` (boolean) to allow transparent colors and `dialogTitle` to set the dialog title.
+* Native QGIS widgets (QgsColorButton) or any widget (label or pushbutton are recommended). For standard Qt Widgets, QGIS [color button](http://qgis.org/api/classQgsColorButton.html)) will be used. 
 
-**Integers**
+Additional options:
+* `allow_alpha` (boolean) to allow transparent colors
+* `dialog_title` (string) to set the dialog title.
+
+**Integer**
 
 * `QLineEdit`
 * `QSpinBox`
 * `QSlider`
 * `QComboBox` (setting is set as the combo box index)
 
-**Doubles**
+**Double**
 
 * `QLineEdit`
 * `QDoubleSpinBox`
+* `QgsScaleWidget`
 
-**Stringlist**
+**String list**
 
 * `QListWidget` (checks items having their _text_ in the list)
 * `QButtonGroup` (checks items having their _name_ in the list)
+* `QTableWidget` checks items having their _text_ or _data_ in the table. Properties of the widget:
+  * `column` specifies which column is used
+  * `invert` if True, unchecked items are saved
+  * `userdata` if True, use the `userData` instead of the `text
+  
+** Enums (from QGIS API or as Python Enum) **
 
-New types of widget are easily added, if one is missing, do not hesitate to [ask](https://github.com/3nids/qgissettingmanager/issues)!
+* ComboEnumWidget`
+  * `auto_populate()`: auto populates the combo box from the possible enum entries (only for Python)
 
+  
+**Dictionnary**
+
+* No widgets are offered yet.
+
+**List**
+
+* No widgets are offered yet.
+* Works only for global settings
+
+
+New types of widget are easily added, if one is missing, do not hesitate to [ask](https://github.com/opengisch/qgissettingmanager/issues)!
 
 ## Using git submodules
 
@@ -156,7 +208,8 @@ To use this module, you can easily copy the files and put them in your project.
 A more elegant way is to use [git submodule](http://git-scm.com/book/en/Git-Tools-Submodules). Hence, you can keep up with latest improvements. In you plugin directory, do
 
 ```
-git submodule add https://github.com/3nids/qgissettingmanager.git
+git submodule add https://github.com/opengisch/qgissettingmanager.git
 ```
 
-A folder _qgissettingmanager_ will be added to your plugin directory. However, git only references the module, and you can `git pull` in this folder to get the last changes.
+A folder _qgissettingmanager_ will be added to your plugin directory. 
+However, git only references the module, and you can `git pull` in this folder to get the last changes.

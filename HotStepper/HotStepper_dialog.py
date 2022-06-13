@@ -23,13 +23,13 @@
 
 import os
 
-from PyQt4 import QtGui, uic
+from qgis.PyQt import QtWidgets, uic
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'HotStepper_dialog_base.ui'))
 
 
-class HotStepperDialog(QtGui.QDialog, FORM_CLASS):
+class HotStepperDialog(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(HotStepperDialog, self).__init__(parent)

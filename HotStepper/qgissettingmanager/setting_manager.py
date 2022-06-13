@@ -26,25 +26,26 @@
 #
 #---------------------------------------------------------------------
 
-from setting import Scope
-import inspect
 
 # to print debug info
 Debug = False
 
-# TODO remove this import used in deprecated method
-from types import *
 
-
-class SettingManager():
-    def __init__(self, plugin_name):
+class SettingManager:
+    def __init__(self, plugin_name, save_under_plugins: bool = True):
+        """
+        :param plugin_name: the plugin name
+        :param save_under_plugins: determines if global settings are grouped under "plugins" or at the top level
+        """
         self.plugin_name = plugin_name
+        self.save_under_plugins = save_under_plugins
         self.__settings = {}
 
     def add_setting(self, setting):
         if setting.name in self.__settings:
-            raise NameError("%s already exist in settings." % name)
+            raise NameError("{} already exist in settings.".format(setting.name))
         setting.set_plugin_name(self.plugin_name)
+        setting.save_under_plugins = self.save_under_plugins
         self.__settings[setting.name] = setting
 
     def value(self, setting_name):
@@ -64,46 +65,9 @@ class SettingManager():
         del self.__settings[setting_name]
 
     def settings_list(self):
-        return self.__settings.keys()
+        return list(self.__settings.keys())
 
     def setting(self, name):
         if name not in self.__settings:
             raise NameError('{} setting does not exist'.format(name))
         return self.__settings[name]
-
-
-    ##########################################
-    #                                        #
-    ##########################################
-    # deprecated
-    def addSetting(self, name, setting_type, tscope, default_value, options={}):
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        print("qgissettingmanager:: calling addSetting with these chain of argument is deprecated."
-              " Consider using add_setting.")
-        print("caller: %s line %u in %s" % (calframe[1][3], calframe[1][2], calframe[1][1]))
-        if name in self.__settings is not None:
-            raise NameError("%s already exist in settings." % name)
-        if setting_type.lower() not in ("string", "double", "integer", "bool", "color", "stringlist"):
-            raise NameError("Wrong type %s" % setting_type)
-        if tscope.lower() == "global":
-            scope = Scope.Global
-        elif tscope.lower() == "project":
-            scope = Scope.Project
-        else:
-            raise NameError("%s is not a valid scope. Must be project or global." % tscope)
-        SettingClass = globals()[setting_type[0].upper() + setting_type[1:].lower()]
-        setting = SettingClass(name, scope, default_value, options)
-        setting.set_plugin_name(self.plugin_name)
-        self.__settings[name] = setting
-
-    # deprecated
-    def setValue(self, setting_name, value):
-        print("qgissettingmanager:: calling setValue is deprecated. Consider using set_value.")
-        return self.set_value(setting_name, value)
-
-
-
-
-
-

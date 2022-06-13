@@ -26,39 +26,48 @@
 #
 #---------------------------------------------------------------------
 
-from qgis.PyQt.QtWidgets import QListWidget, QTableWidget, QButtonGroup
-from qgis.core import QgsProject, Qgis, QgsSettings
+import json
 
-from ..setting import Setting
-from ..widgets import ListStringListWidget, TableWidgetStringListWidget, ButtonGroupStringListWidget
+from qgis.core import Qgis
+
+from ..setting import Setting, Scope
 
 
-class Stringlist(Setting):
+class Dictionary(Setting):
     def __init__(self, name, scope, default_value, **kwargs):
-        Setting.__init__(self, name, scope, default_value,
-                         object_type=None,
-                         qsettings_read=lambda key, def_val: QgsSettings().value(key, def_val),
-                         qsettings_write=lambda key, val: QgsSettings().setValue(key, val),
-                         project_read=lambda plugin, key, def_val: QgsProject.instance().readListEntry(plugin, key, def_val)[0],
-                         **kwargs)
+        if scope == Scope.Global:
+            Setting.__init__(
+                self, name, scope, default_value,
+                object_type=dict,
+                **kwargs)
+        else:
+            # for project use json as text
+            Setting.__init__(
+                self, name, scope, default_value,
+                object_type=str,
+                **kwargs)
 
     def read_out(self, value, scope):
-        # always cast to list
-        if value is not None:
-            value = list(value)
+        if scope == Scope.Global:
+            return value
         else:
-            value = []
-        return value
+            # always cast to dict
+            if value is None:
+                value = {}
+            return json.loads(value)
 
     def write_in(self, value, scope):
-        # always cast to list
-        if value is not None:
-            value = list(value)
-        return value
+        if scope == Scope.Global:
+            return value
+        else:
+            # always cast to list
+            if value is None:
+                value = {}
+            return json.dumps(value)
 
     def check(self, value):
-        if value is not None and type(value) not in (list, tuple):
-            self.info('{}:: Invalid value for setting {}: {}. It must be a string list.'
+        if value is not None and type(value) is not dict:
+            self.info('{}:: Invalid value for setting {}: {}. It must be a dictionary.'
                       .format(self.plugin_name, self.name, value),
                       Qgis.Warning)
             return False
@@ -66,15 +75,4 @@ class Stringlist(Setting):
 
     @staticmethod
     def supported_widgets():
-        return {
-            QListWidget: ListStringListWidget,
-            QTableWidget: TableWidgetStringListWidget,
-            QButtonGroup: ButtonGroupStringListWidget,
-        }
-
-
-
-
-
-
-
+        return {}

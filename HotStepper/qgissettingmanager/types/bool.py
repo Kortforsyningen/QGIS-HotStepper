@@ -26,55 +26,42 @@
 #
 #---------------------------------------------------------------------
 
-from PyQt4.QtGui import QCheckBox
-from qgis.core import QgsProject
+from PyQt5.QtWidgets import QCheckBox, QGroupBox
+from qgis.core import QgsProject, Qgis
+from qgis.gui import QgsCollapsibleGroupBox
 from ..setting import Setting
 from ..setting_widget import SettingWidget
+from ..widgets import CheckBoxBoolWidget, GroupBoxBoolWidget, CheckableBoolWidget
 
 
 class Bool(Setting):
 
-    def __init__(self, name, scope, default_value, options={}):
-        Setting.__init__(self, name, scope, default_value, bool, QgsProject.instance().readBoolEntry, QgsProject.instance().writeEntryBool, options)
+    def __init__(self, name, scope, default_value, **kwargs):
+        Setting.__init__(self, name, scope, default_value,
+                         object_type=bool,
+                         project_read=lambda plugin, key, def_val: QgsProject.instance().readBoolEntry(plugin, key, def_val)[0],
+                         project_write=lambda plugin, key, val: QgsProject.instance().writeEntryBool(plugin, key, val),
+                         **kwargs)
 
     def check(self, value):
-        if type(value) != bool:
-            raise NameError("Setting %s must be a boolean." % self.name)
-        
-    def config_widget(self, widget):
-        if type(widget) == QCheckBox:
-            return CheckBoxBoolWidget(self, widget, self.options)
-        elif hasattr(widget, "isCheckable") and widget.isCheckable():
-            return CheckableBoolWidget(self, widget, self.options)
-        else:
-            print type(widget)
-            raise NameError("SettingManager does not handle %s widgets for booleans at the moment (setting: %s)" %
-                            (type(widget), self.name))
+        if type(value) != type(True):
+            self.info('{}:: Invalid value for setting {}: {}. It must be a boolean.'
+                      .format(self.plugin_name, self.name, value),
+                      Qgis.Warning)
+            return False
+        return True
+
+    @staticmethod
+    def supported_widgets():
+        return {
+            QCheckBox: CheckBoxBoolWidget,
+            QGroupBox: GroupBoxBoolWidget,
+            QgsCollapsibleGroupBox: GroupBoxBoolWidget
+        }
+
+    def fallback_widget(self, widget) -> SettingWidget:
+        if hasattr(widget, "isCheckable") and widget.isCheckable():
+            return CheckableBoolWidget(self, widget)
+        return None
 
 
-class CheckBoxBoolWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.stateChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setChecked(value)
-
-    def widget_value(self):
-        return self.widget.isChecked()
-
-
-class CheckableBoolWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.clicked
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setChecked(value)
-
-    def widget_value(self):
-        return self.widget.isChecked()
-
-    def widget_test(self, value):
-        print('cannot test checkable groupbox at the moment')
-        return False

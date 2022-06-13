@@ -26,53 +26,41 @@
 #
 #---------------------------------------------------------------------
 
-from PyQt4.QtGui import QLineEdit, QDoubleSpinBox
-from qgis.core import QgsProject
+from PyQt5.QtWidgets import QLineEdit, QDoubleSpinBox
+from qgis.core import QgsProject, Qgis
+from qgis.gui import QgsScaleWidget
 
 from ..setting import Setting
-from ..setting_widget import SettingWidget
+from ..widgets import LineEditDoubleWidget, DoubleQgsScaleWidget, DoubleSpinBoxDoubleWidget
+
 
 class Double(Setting):
 
-    def __init__(self, name, scope, default_value, options={}):
-        Setting.__init__(self, name, scope, default_value, float, QgsProject.instance().readDoubleEntry, QgsProject.instance().writeEntryDouble, options)
+    def __init__(self, name, scope, default_value, **kwargs):
+        Setting.__init__(self, name, scope, default_value,
+                         object_type=float,
+                         project_read=lambda plugin, key, def_val: QgsProject.instance().readDoubleEntry(plugin, key, def_val)[0],
+                         project_write=lambda plugin, key, val: QgsProject.instance().writeEntryDouble(plugin, key, val),
+                         **kwargs)
 
     def check(self, value):
         if type(value) != int and type(value) != float:
-            raise NameError("Setting %s must be a double." % self.name)
+            self.info('{}:: Invalid value for setting {}: {}. It must be a floating number.'
+                      .format(self.plugin_name, self.name, value),
+                      Qgis.Warning)
+            return False
+        return True
 
-    def config_widget(self, widget):
-        if type(widget) == QLineEdit:
-            return LineEditDoubleWidget(self, widget, self.options)
-        elif type(widget) == QDoubleSpinBox:
-            return DoubleSpinBoxDoubleWidget(self, widget, self.options)
-        else:
-            raise NameError("SettingManager does not handle %s widgets for integers for the moment (setting: %s)" %
-                            (type(widget), self.name))
-
-
-class LineEditDoubleWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.textChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setText('{}'.format(value))
-
-    def widget_value(self):
-        return float(self.widget.text())
+    @staticmethod
+    def supported_widgets():
+        return {
+            QgsScaleWidget: DoubleQgsScaleWidget,
+            QLineEdit: LineEditDoubleWidget,
+            QDoubleSpinBox: DoubleSpinBoxDoubleWidget
+        }
 
 
-class DoubleSpinBoxDoubleWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.valueChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
 
-    def set_widget_value(self, value):
-        self.widget.setValue(value)
-
-    def widget_value(self):
-        return self.widget.value()
 
 
 

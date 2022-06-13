@@ -26,130 +26,59 @@
 #
 #---------------------------------------------------------------------
 
+from qgis.PyQt.QtWidgets import QLineEdit, QComboBox, QButtonGroup
+from qgis.core import Qgis
+from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox, QgsFileWidget, QgsProjectionSelectionWidget,\
+    QgsAuthConfigSelect
 
-# options:
-# comboMode: can be data or text. It defines if setting is found directly in combobox text or rather in the userData.
+from ..setting import Setting, Scope
+from ..widgets import LineEditStringWidget, ButtonGroupStringWidget, ComboStringWidget,\
+    MapLayerComboStringWidget, FieldComboStringWidget, FileStringWidget, AuthConfigSelectStringWidget, ProjectionStringWidget
 
-from PyQt4.QtGui import QLineEdit, QButtonGroup, QComboBox
-from qgis.core import QgsProject, QgsMapLayerRegistry
-from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox
-
-from ..setting import Setting
-from ..setting_widget import SettingWidget
 
 
 class String(Setting):
-    def __init__(self, name, scope, default_value, options={}):
-        Setting.__init__(self, name, scope, default_value, str, QgsProject.instance().readEntry, QgsProject.instance().writeEntry, options)
+    def __init__(self,
+                 name,
+                 scope: Scope,
+                 default_value,
+                 **kwargs):
+        """
+
+        :param name:
+        :param scope:
+        :param default_value:
+        :param combo_mode: defines what is used to retrieve the setting in a combo box. Can be Data (default) or Text.
+        :param enum: if given, the setting will be associated to the enum as given by the default value.
+                     Can be QGIS for a QGIS enum. Enum must have been declared using Qt Q_ENUM macro.
+                     Enum mode is available for global settings only.
+        :param kwargs:
+        """
+
+        # prevent bad usage (from older version)
+        assert 'combo_mode' not in kwargs
+
+        Setting.__init__(self, name, scope, default_value, object_type=str, ** kwargs)
 
     def check(self, value):
-        if type(value) != str and type(value) != unicode:
-            print(type(value))
-            raise NameError('{}:: Invalid value for setting {}: {}. It must be a string.'.format(self.plugin_name, self.name, value))
+        if value is not None and type(value) != str:
+            self.info('{}:: Invalid value for setting {}: {}. It must be a string.'
+                      .format(self.plugin_name, self.name, value),
+                      Qgis.Warning)
+            return False
+        return True
 
-    def config_widget(self, widget):
-        if type(widget) == QLineEdit:
-            return LineEditStringWidget(self, widget, self.options)
-        elif type(widget) == QButtonGroup:
-            return ButtonGroupStringWidget(self, widget, self.options)
-        elif type(widget) == QComboBox:
-            return ComboStringWidget(self, widget, self.options)
-        elif type(widget) == QgsMapLayerComboBox:
-            return MapLayerComboStringWidget(self, widget, self.options)
-        elif type(widget) == QgsFieldComboBox:
-            return FieldComboStringWidget(self, widget, self.options)
-        else:
-            raise NameError("SettingManager does not handle %s widgets for strings at the moment (setting: %s)" %
-                (type(widget), self.name))
-
-
-class LineEditStringWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.textChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setText(value)
-
-    def widget_value(self):
-        return self.widget.text()
-
-
-class ButtonGroupStringWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.buttonClicked
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        for button in self.widget.buttons():
-            if value == button.objectName():
-                button.setChecked(True)
-                break
-
-    def widget_value(self):
-        value = ""
-        for button in self.widget.buttons():
-            if button.isChecked():
-                value = button.objectName()
-                break
-        return value
-
-
-class ComboStringWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.currentIndexChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        combo_mode = self.options.get("comboMode", "data")
-        if combo_mode == 'data':
-            self.widget.setCurrentIndex(self.widget.findData(value))
-        elif combo_mode == 'text':
-            self.widget.setCurrentIndex(self.widget.findText(value))
-        else:
-            raise NameError('invalid options for {}.comboMode: {}'.format(self.setting.name, combo_mode))
-
-    def widget_value(self):
-        combo_mode = self.options.get("comboMode", "data")
-        if combo_mode == 'data':
-            return self.widget.itemData(self.widget.currentIndex()) or ""
-        elif combo_mode == 'text':
-            return self.widget.currentText()
-        else:
-            raise NameError('invalid options for {}.comboMode: {}'.format(self.setting.name, combo_mode))
-
-
-class MapLayerComboStringWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.layerChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setLayer(QgsMapLayerRegistry.instance().mapLayer(value))
-
-    def widget_value(self):
-        layer = self.widget.currentLayer()
-        if layer is not None:
-            return layer.id()
-        else:
-            return ""
-
-
-class FieldComboStringWidget(SettingWidget):
-    def __init__(self, setting, widget, options):
-        signal = widget.currentIndexChanged
-        SettingWidget.__init__(self, setting, widget, options, signal)
-
-    def set_widget_value(self, value):
-        self.widget.setField(value)
-
-    def widget_value(self):
-        return self.widget.currentField()
-
-
-
-
-
-
+    @staticmethod
+    def supported_widgets():
+        return {
+            QgsMapLayerComboBox: MapLayerComboStringWidget,
+            QgsFieldComboBox: FieldComboStringWidget,
+            QgsFileWidget: FileStringWidget,
+            QgsProjectionSelectionWidget: ProjectionStringWidget,
+            QgsAuthConfigSelect: AuthConfigSelectStringWidget,
+            QLineEdit: LineEditStringWidget,
+            QButtonGroup: ButtonGroupStringWidget,
+            QComboBox: ComboStringWidget,
+        }
 
 
